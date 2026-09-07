@@ -233,7 +233,11 @@ export default function AddBook() {
 
       {lookup.state === 'loading' && <p className="lookup-msg">กำลังค้นจากเลข ISBN…</p>}
       {lookup.state === 'found' && (
-        <p className="lookup-msg ok">เติมข้อมูลให้แล้ว ตรวจดูอีกทีก่อนบันทึก</p>
+        <p className="lookup-msg ok">
+          {coverUrl || photoUrl
+            ? 'เติมข้อมูลให้แล้ว ตรวจดูอีกทีก่อนบันทึก'
+            : 'เติมข้อมูลให้แล้ว — แต่ฐานข้อมูลไม่มีรูปปกของเล่มนี้ กดปุ่มกล้องเพื่อถ่ายปกจริงเอง'}
+        </p>
       )}
       {lookup.state === 'notfound' && (
         <p className="lookup-msg">
@@ -266,31 +270,22 @@ export default function AddBook() {
             </svg>
           </button>
         </div>
-        <div className="cover-meta">
-          <div className="cover-found-label">
-            {photoUrl
-              ? 'ปกที่คุณถ่ายเอง'
-              : coverUrl
-                ? 'ปกจริงจาก Open Library'
-                : 'ถ่ายปกเองได้ — หนังสือไทยส่วนใหญ่ไม่มีในฐานข้อมูล และปกไทยสวยกว่าฉบับแปลเยอะ'}
-          </div>
-          {(photoUrl || coverUrl) && (
-            <button
-              className="cover-drop"
-              onClick={() => {
-                if (photoUrl) {
-                  URL.revokeObjectURL(photoUrl);
-                  setPhotoUrl(null);
-                  setPhoto(null);
-                } else {
-                  setCoverUrl(undefined);
-                }
-              }}
-            >
-              ไม่ใช้ปกนี้
-            </button>
-          )}
-        </div>
+        {(photoUrl || coverUrl) && (
+          <button
+            className="cover-drop"
+            onClick={() => {
+              if (photoUrl) {
+                URL.revokeObjectURL(photoUrl);
+                setPhotoUrl(null);
+                setPhoto(null);
+              } else {
+                setCoverUrl(undefined);
+              }
+            }}
+          >
+            ไม่ใช้ปกนี้
+          </button>
+        )}
       </div>
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={pickPhoto} />
 
