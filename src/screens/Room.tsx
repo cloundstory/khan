@@ -52,7 +52,7 @@ export default function Room() {
 
       {/* เรียงตามความสูงจริงของห้อง: ชั้นบนผนัง → โต๊ะ → กองบนพื้น
           และกองต้องอยู่ล่างสุดเพราะเป็นโซนเดียวที่โตไม่มีเพดาน */}
-      <Zone name="ชั้น" count={shelf.length}>
+      <Zone name="ชั้น" tone="wall" count={shelf.length}>
         {shelf.length === 0 ? (
           <p className="zone-empty">ยังไม่มีเล่มไหนขึ้นชั้น</p>
         ) : (
@@ -88,7 +88,7 @@ export default function Room() {
         )}
       </Zone>
 
-      <Zone name="โต๊ะ" count={desk.length} note={desk.length > 3 ? 'โต๊ะเริ่มแน่น' : undefined}>
+      <Zone name="โต๊ะ" tone="desk" count={desk.length} note={desk.length > 3 ? 'โต๊ะเริ่มแน่น' : undefined}>
         {!open ? (
           <p className="zone-empty">ยังไม่มีเล่มไหนอยู่บนโต๊ะ</p>
         ) : (
@@ -117,7 +117,7 @@ export default function Room() {
         )}
       </Zone>
 
-      <Zone name="กอง" count={pile.length}>
+      <Zone name="กอง" tone="floor" count={pile.length}>
         {pile.length === 0 ? (
           <p className="zone-empty">กองว่าง</p>
         ) : (
@@ -208,13 +208,22 @@ function OpenBook(props: { book: Book; sessions: Session[]; onClick: () => void 
   );
 }
 
-function Zone(props: { name: string; count: number; note?: string; children: React.ReactNode }) {
+/**
+ * ไม่มีหัวข้อให้เห็นแล้ว — ภาพของแต่ละโซนบอกตัวเองอยู่แล้ว
+ * แต่ยังใส่ aria-label ไว้ เพราะ screen reader ไม่ได้เห็นภาพนั้น
+ */
+function Zone(props: {
+  name: string;
+  tone: 'wall' | 'desk' | 'floor';
+  count: number;
+  note?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="zone">
+    <section className={`zone zone--${props.tone}`} aria-label={props.name}>
       <div className="zone-head">
-        <span className="zone-name">{props.name}</span>
-        <span className="zone-count">{props.count}</span>
         {props.note && <span className="zone-note">{props.note}</span>}
+        {props.count > 0 && <span className="zone-count">{props.count}</span>}
       </div>
       {props.children}
     </section>
