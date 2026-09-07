@@ -16,6 +16,10 @@ export interface Book {
   total?: number;
   current: number;
   status: BookStatus;
+  /** ISBN-13 จากการสแกน — เก็บไว้ค้นข้อมูลซ้ำได้ */
+  isbn?: string;
+  /** ปกจริงจาก Open Library — ไม่มี = ใช้ปกที่ระบบสร้างจาก color + title */
+  coverUrl?: string;
   /** "อยากรู้อะไรจากเล่มนี้" — ถามตอนเพิ่มเล่ม */
   intent?: string;
   /** กระดาษปิดตอนขึ้นชั้น */

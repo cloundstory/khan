@@ -16,6 +16,34 @@ export default defineConfig(({ command }) => {
       react(),
       VitePWA({
         registerType: 'autoUpdate',
+        workbox: {
+          // ไม่เอา .wasm เข้า precache — มันหนัก 1 MB และคนส่วนใหญ่ไม่ได้สแกน
+          // ปล่อยให้ runtimeCaching ด้านล่างเก็บให้ตอนกดสแกนครั้งแรกแทน
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+          runtimeCaching: [
+            {
+              // ปกหนังสือจาก Open Library — เก็บไว้ยาว ๆ ปกไม่เปลี่ยน
+              urlPattern: /^https:\/\/covers\.openlibrary\.org\//,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'book-covers',
+                expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 365 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
+            },
+            {
+              // ตัวถอดรหัสบาร์โค้ด ~1 MB — ไม่ precache เพราะคนส่วนใหญ่ไม่สแกน
+              // แต่พอโหลดครั้งแรกแล้วเก็บไว้เลย ครั้งต่อไปไม่ต้องรอ
+              urlPattern: ({ url }) => url.pathname.endsWith('.wasm'),
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'scanner-wasm',
+                expiration: { maxEntries: 4 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
+            },
+          ],
+        },
         manifest: {
           id: base,
           name: 'คั่น',

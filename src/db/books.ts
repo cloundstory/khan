@@ -17,6 +17,8 @@ export async function addBook(input: {
   unit: Unit;
   total?: number;
   intent?: string;
+  isbn?: string;
+  coverUrl?: string;
 }): Promise<Book> {
   const book: Book = {
     id: uid(),
@@ -25,6 +27,8 @@ export async function addBook(input: {
     color: input.color,
     unit: input.unit,
     total: input.total ? Math.round(input.total) : undefined,
+    isbn: input.isbn || undefined,
+    coverUrl: input.coverUrl || undefined,
     current: 0,
     status: 'pile',
     intent: input.intent?.trim() || undefined,

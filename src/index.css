@@ -285,6 +285,61 @@ input, textarea, select { font: inherit; color: inherit; }
 .session-note.blank { color: var(--ink-faint); font-style: italic; font-size: 13.5px; }
 .pin-btn { font-size: 12px; color: var(--sage); margin-top: 6px; font-weight: 500; }
 
+/* ---------- ค้นจาก ISBN ---------- */
+.lookup {
+  display: flex; flex-direction: column; gap: 9px;
+  padding: 14px; margin-bottom: 20px;
+  background: var(--paper-hi);
+  border: 1px solid var(--line-soft); border-radius: 7px;
+}
+.lookup-row { display: flex; gap: 8px; }
+.lookup-row input {
+  flex: 1; min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--line); border-radius: 7px;
+  background: var(--paper);
+  font-size: 14.5px; font-variant-numeric: tabular-nums;
+  -webkit-appearance: none; appearance: none;
+}
+.lookup-row input:focus { border-color: var(--sage); outline: none; }
+.lookup-go { border: 1px solid var(--line); border-radius: 7px; padding: 0 20px; font-size: 14px; color: var(--ink); }
+.lookup-go:disabled { opacity: 0.35; cursor: default; }
+.lookup-msg { font-size: 12.5px; line-height: 1.6; color: var(--ink-soft); }
+.lookup-msg.ok { color: var(--sage); }
+.lookup-msg.warn { color: #a24b40; }
+
+.cover-found { display: flex; gap: 13px; align-items: center; margin-bottom: 18px; }
+.cover-found img {
+  width: 62px; height: auto; border-radius: 2px;
+  box-shadow: 0 2px 5px rgba(42, 38, 34, 0.22), 0 8px 18px rgba(42, 38, 34, 0.14);
+}
+.cover-found-label { font-size: 12.5px; color: var(--ink-soft); }
+.cover-drop { padding: 4px 0 0; text-align: left; }
+
+/* ---------- กล้องสแกนบาร์โค้ด ---------- */
+.scanner { position: fixed; inset: 0; background: #0d100f; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 80; }
+.scanner-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* กรอบเล็งให้รู้ว่าต้องวางบาร์โค้ดตรงไหน */
+.scanner-frame {
+  position: relative; z-index: 1;
+  width: min(78vw, 320px); height: 30vh; max-height: 190px;
+  border: 2px solid rgba(237, 231, 218, 0.9); border-radius: 10px;
+  box-shadow: 0 0 0 100vmax rgba(13, 16, 15, 0.55);
+}
+.scanner-msg {
+  position: relative; z-index: 1;
+  margin-top: 22px; padding: 0 28px;
+  color: #ede7da; font-size: 13.5px; line-height: 1.7; text-align: center;
+  max-width: 34ch;
+}
+.scanner-close {
+  position: absolute; z-index: 2;
+  bottom: calc(var(--safe-b) + 28px);
+  border: 1px solid rgba(237, 231, 218, 0.35); border-radius: 999px;
+  padding: 12px 30px; font-size: 14.5px; color: #ede7da;
+  background: rgba(13, 16, 15, 0.5); backdrop-filter: blur(6px);
+}
+
 /* ---------- เบ็ดเตล็ด ---------- */
 .spine-meta { font-size: 12px; color: var(--ink-faint); margin-top: 3px; }
 
