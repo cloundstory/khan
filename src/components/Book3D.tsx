@@ -173,7 +173,7 @@ export default function Book3D({ book }: { book: Book }) {
       {!live && (
         <div className="book3d-flat" style={{ background: book.color }} aria-hidden="true">
           {book.coverUrl ? (
-            <img src={book.coverUrl} alt="" />
+            <img src={book.coverUrl} alt="" crossOrigin="anonymous" />
           ) : (
             <span className="book3d-flat-title">{book.title}</span>
           )}

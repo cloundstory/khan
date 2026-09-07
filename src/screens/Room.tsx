@@ -111,7 +111,11 @@ export default function Room() {
                     style={{ '--c': b.color } as React.CSSProperties}
                     onClick={() => go({ name: 'book', bookId: b.id })}
                   >
-                    {b.coverUrl && <img className="mini-cover" src={b.coverUrl} alt="" />}
+                    {/* crossOrigin เพื่อให้เป็นคำขอแบบ cors เหมือนกับที่ Book3D ใช้ fetch
+                      ไม่งั้น service worker จะเก็บ opaque response ไว้แล้วทำให้ 3D โหลดปกไม่ได้ */}
+                  {b.coverUrl && (
+                    <img className="mini-cover" src={b.coverUrl} alt="" crossOrigin="anonymous" />
+                  )}
                     <span className="t">{b.title}</span>
                     {b.current > 0 && <span className="m">{posLabel(b, b.current)}</span>}
                   </button>
@@ -143,7 +147,11 @@ export default function Room() {
                   }
                   onClick={() => go({ name: 'book', bookId: b.id })}
                 >
-                  {b.coverUrl && <img className="mini-cover" src={b.coverUrl} alt="" />}
+                  {/* crossOrigin เพื่อให้เป็นคำขอแบบ cors เหมือนกับที่ Book3D ใช้ fetch
+                      ไม่งั้น service worker จะเก็บ opaque response ไว้แล้วทำให้ 3D โหลดปกไม่ได้ */}
+                  {b.coverUrl && (
+                    <img className="mini-cover" src={b.coverUrl} alt="" crossOrigin="anonymous" />
+                  )}
                   <span className="t">{b.title}</span>
                   <span className="d">{days} วัน</span>
                 </button>

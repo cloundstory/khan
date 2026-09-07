@@ -119,9 +119,7 @@ export default function BarcodeScanner(props: {
     <div className="scanner">
       <video ref={videoRef} className="scanner-video" playsInline muted autoPlay />
 
-      <div className={`scanner-frame${status === 'found' ? ' is-found' : ''}`} ref={frameRef}>
-        {status === 'scanning' && <span className="scanner-line" />}
-      </div>
+      <div className={`scanner-frame${status === 'found' ? ' is-found' : ''}`} ref={frameRef} />
 
       <div className="scanner-msg">
         {status === 'starting' && 'กำลังเปิดกล้อง…'}

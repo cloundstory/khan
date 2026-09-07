@@ -143,7 +143,7 @@ export default function AddBook() {
 
       {coverUrl && (
         <div className="cover-found">
-          <img src={coverUrl} alt="" />
+          <img src={coverUrl} alt="" crossOrigin="anonymous" />
           <div>
             <div className="cover-found-label">ปกจริงจาก Open Library</div>
             <button className="btn-bare cover-drop" onClick={() => setCoverUrl(undefined)}>

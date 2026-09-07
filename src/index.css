@@ -363,20 +363,9 @@ input, textarea, select { font: inherit; color: inherit; }
   border-color: var(--sage);
   box-shadow: 0 0 0 100vmax rgba(13, 16, 15, 0.6), 0 0 22px rgba(127, 168, 143, 0.75);
 }
-/* เส้นกวาด — บอกว่ากำลังอ่านอยู่ ไม่ได้ค้าง */
-.scanner-line {
-  position: absolute; left: 8px; right: 8px; height: 2px;
-  background: linear-gradient(90deg, transparent, #f0b962, transparent);
-  box-shadow: 0 0 10px rgba(240, 185, 98, 0.85);
-  animation: scan-sweep 1.9s ease-in-out infinite;
-}
-@keyframes scan-sweep {
-  0%, 100% { top: 10%; }
-  50% { top: 88%; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .scanner-line { display: none; }
-}
+/* เคยมีเส้นกวาดขึ้นลงตรงนี้ ถอดออกแล้ว —
+   มันสื่อว่ากำลังไล่อ่านทีละบรรทัด ซึ่งไม่ตรงกับสิ่งที่โค้ดทำ (อ่านทั้งกรอบทีเดียว)
+   และภาพจากกล้องที่ขยับอยู่ก็บอกอยู่แล้วว่าไม่ได้ค้าง */
 .scanner-msg {
   position: relative; z-index: 1;
   margin-top: 22px; padding: 0 28px;

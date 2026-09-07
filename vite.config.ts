@@ -30,9 +30,13 @@ export default defineConfig(({ command }) => {
               urlPattern: /^https:\/\/covers\.openlibrary\.org\//,
               handler: 'CacheFirst',
               options: {
-                cacheName: 'book-covers',
+                // ตั้งชื่อใหม่เพื่อทิ้งแคชเดิมที่มี opaque response ปนอยู่
+                cacheName: 'book-covers-v2',
                 expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 365 },
-                cacheableResponse: { statuses: [0, 200] },
+                // ห้ามเก็บ opaque response (status 0) เด็ดขาด
+                // ถ้าเก็บ พอ Book3D เรียก fetch แบบ cors จะได้ opaque จากแคชแล้ว fetch ล้มทั้งดุ้น
+                // ทำให้ปกจริงหายไปเฉพาะบน production ที่มี service worker
+                cacheableResponse: { statuses: [200] },
               },
             },
             {

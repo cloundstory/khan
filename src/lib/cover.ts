@@ -186,18 +186,23 @@ export function dominantColor(cover: HTMLCanvasElement): string | null {
   }
 
   let r = 0, gr = 0, b = 0, weight = 0;
+  let ar = 0, ag = 0, ab = 0, n = 0;
   for (let i = 0; i < data.length; i += 4) {
-    const [pr, pg, pb] = [data[i], data[i + 1], data[i + 2]];
+    const pr = data[i], pg = data[i + 1], pb = data[i + 2];
+    ar += pr; ag += pg; ab += pb; n++;
+
     const max = Math.max(pr, pg, pb) / 255;
     const min = Math.min(pr, pg, pb) / 255;
     const l = (max + min) / 2;
     const sat = max === min ? 0 : (max - min) / (l > 0.5 ? 2 - max - min : max + min);
-    if (l > 0.92 || l < 0.08 || sat < 0.12) continue; // ข้ามขาว ดำ และสีจืด
-    const w = sat;
-    r += pr * w; gr += pg * w; b += pb * w; weight += w;
+    // ปกภาพถ่ายกลางคืนมืดและสีจืดเกือบทั้งใบ กรองแรงเกินจะไม่เหลือพิกเซลเลย
+    if (l > 0.96 || l < 0.04 || sat < 0.07) continue;
+    r += pr * sat; gr += pg * sat; b += pb * sat; weight += sat;
   }
-  if (weight === 0) return null;
+  if (n === 0) return null;
 
+  // ปกขาวดำล้วนจะไม่มีพิกเซลไหนผ่านเกณฑ์ — ใช้ค่าเฉลี่ยทั้งใบแทน ดีกว่าไม่ให้สีเลย
+  if (weight < 0.5) return clampToRoomTone(ar / n, ag / n, ab / n);
   return clampToRoomTone(r / weight, gr / weight, b / weight);
 }
 
