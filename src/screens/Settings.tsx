@@ -58,7 +58,7 @@ export default function Settings() {
           {books.map((b) => (
             <div className="session-row" key={b.id}>
               <div className="session-top">
-                <span style={{ color: 'var(--paper)' }}>{b.title}</span>
+                <span style={{ color: 'var(--ink)' }}>{b.title}</span>
                 {confirmId === b.id ? (
                   <span>
                     <button className="pin-btn danger" onClick={() => remove(b.id)}>ลบจริง</button>

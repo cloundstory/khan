@@ -1,7 +1,8 @@
 import { useApp } from '../store/useApp';
 import { openBookId, daysInPile } from '../lib/stats';
+import { buildRecovery, daysAwayLabel } from '../lib/recovery';
 import { posLabel, progressRatio } from '../lib/format';
-import type { Book } from '../db/schema';
+import type { Book, Session } from '../db/schema';
 
 export default function Room() {
   const { books, sessions, go } = useApp();
@@ -13,7 +14,8 @@ export default function Room() {
     .sort((a, b) => (b.finishedAt ?? 0) - (a.finishedAt ?? 0));
 
   const openId = openBookId(desk, sessions);
-  const deskSorted = [...desk].sort((a, b) => (a.id === openId ? -1 : b.id === openId ? 1 : 0));
+  const open = desk.find((b) => b.id === openId);
+  const closed = desk.filter((b) => b.id !== openId);
 
   if (books.length === 0) {
     return (
@@ -49,12 +51,31 @@ export default function Room() {
       </div>
 
       <Zone name="โต๊ะ" count={desk.length} note={desk.length > 3 ? 'โต๊ะเริ่มแน่น' : undefined}>
-        {deskSorted.length === 0 ? (
+        {!open ? (
           <p className="zone-empty">ยังไม่มีเล่มไหนอยู่บนโต๊ะ</p>
         ) : (
-          deskSorted.map((b) => (
-            <Spine key={b.id} book={b} open={b.id === openId} onClick={() => go({ name: 'book', bookId: b.id })} />
-          ))
+          <>
+            <OpenBook
+              book={open}
+              sessions={sessions.filter((s) => s.bookId === open.id)}
+              onClick={() => go({ name: 'book', bookId: open.id })}
+            />
+            {closed.length > 0 && (
+              <div className="lying">
+                {closed.map((b) => (
+                  <button
+                    key={b.id}
+                    className="lying-bk"
+                    style={{ '--c': b.color } as React.CSSProperties}
+                    onClick={() => go({ name: 'book', bookId: b.id })}
+                  >
+                    <span className="t">{b.title}</span>
+                    {b.current > 0 && <span className="m">{posLabel(b, b.current)}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </Zone>
 
@@ -62,9 +83,29 @@ export default function Room() {
         {pile.length === 0 ? (
           <p className="zone-empty">กองว่าง</p>
         ) : (
-          pile.map((b) => (
-            <Spine key={b.id} book={b} pile onClick={() => go({ name: 'book', bookId: b.id })} />
-          ))
+          /* column-reverse ใน CSS — เล่มแรกของอาร์เรย์ (เก่าสุด) จึงไปอยู่ก้นกอง */
+          <div className="pile">
+            {pile.map((b, i) => {
+              const days = daysInPile(b);
+              return (
+                <button
+                  key={b.id}
+                  className={`pile-bk${days > 90 ? ' dusty' : ''}`}
+                  style={
+                    {
+                      '--c': b.color,
+                      '--dx': `${(i % 2 ? 1 : -1) * (2 + (i % 3) * 2)}px`,
+                      '--rot': `${((i % 2 ? 1 : -1) * (0.3 + (i % 3) * 0.22)).toFixed(2)}deg`,
+                    } as React.CSSProperties
+                  }
+                  onClick={() => go({ name: 'book', bookId: b.id })}
+                >
+                  <span className="t">{b.title}</span>
+                  <span className="d">{days} วัน</span>
+                </button>
+              );
+            })}
+          </div>
         )}
       </Zone>
 
@@ -72,16 +113,94 @@ export default function Room() {
         {shelf.length === 0 ? (
           <p className="zone-empty">ยังไม่มีเล่มไหนขึ้นชั้น</p>
         ) : (
-          shelf.map((b) => (
-            <Spine key={b.id} book={b} onClick={() => go({ name: 'book', bookId: b.id })} />
-          ))
+          <div className="shelf">
+            {shelf.map((b) => {
+              const d = spineSize(b);
+              return (
+                <button
+                  key={b.id}
+                  className="vol"
+                  style={
+                    {
+                      '--c': b.color,
+                      '--sw': `${d.sw}px`,
+                      '--h': `${d.h}px`,
+                      '--cw': '30px',
+                    } as React.CSSProperties
+                  }
+                  aria-label={`${b.title}${b.author ? ` โดย ${b.author}` : ''}`}
+                  onClick={() => go({ name: 'book', bookId: b.id })}
+                >
+                  <span className="vol-spine">
+                    <span className="vol-title">{b.title}</span>
+                  </span>
+                  <span className="vol-cover" />
+                </button>
+              );
+            })}
+          </div>
         )}
+        <div className="plank" />
       </Zone>
 
       <button className="fab" onClick={() => go({ name: 'add' })} aria-label="เพิ่มหนังสือ">
         +
       </button>
     </div>
+  );
+}
+
+/**
+ * ขนาดสันมาจากจำนวนหน้าจริง — เล่มหนาต้องดูหนา เล่มใหญ่ต้องดูใหญ่
+ * เล่มที่ไม่ได้บอกจำนวนหน้า (หรือคิดเป็น %) ใช้ขนาดกลาง
+ */
+function spineSize(book: Book): { sw: number; h: number } {
+  if (book.unit === 'percent' || !book.total) return { sw: 22, h: 124 };
+  const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+  return {
+    sw: Math.round(clamp(15 + book.total / 26, 15, 40)),
+    h: Math.round(clamp(104 + book.total / 11, 96, 165)),
+  };
+}
+
+function OpenBook(props: { book: Book; sessions: Session[]; onClick: () => void }) {
+  const { book, sessions } = props;
+  const recovery = buildRecovery(book, sessions);
+  const ratio = progressRatio(book);
+
+  return (
+    <button className="spread" onClick={props.onClick}>
+      <span className="pg">
+        <span className="spread-title">{book.title}</span>
+        <span className="spread-author">{book.author ?? 'ไม่ระบุผู้เขียน'}</span>
+        {ratio != null && ratio > 0 && (
+          <span className="progress">
+            <i style={{ width: `${Math.round(ratio * 100)}%` }} />
+          </span>
+        )}
+      </span>
+
+      <span className="pg">
+        {recovery.depth === 'fresh' ? (
+          <>
+            <span className="spread-when">ยังไม่ได้เริ่มอ่าน</span>
+            {book.intent && <span className="spread-note">อยากรู้ว่า {book.intent}</span>}
+          </>
+        ) : (
+          <>
+            <span className="spread-when">{daysAwayLabel(recovery.daysAway)}</span>
+            <span className="spread-pos">ค้างไว้ที่ {posLabel(book, book.current)}</span>
+            {recovery.last?.note ? (
+              <span className="spread-note">{recovery.last.note}</span>
+            ) : (
+              <span className="spread-note blank">ครั้งนั้นไม่ได้จดอะไรไว้</span>
+            )}
+          </>
+        )}
+      </span>
+
+      <span className="ribbon" />
+    </button>
   );
 }
 
@@ -95,36 +214,5 @@ function Zone(props: { name: string; count: number; note?: string; children: Rea
       </div>
       {props.children}
     </section>
-  );
-}
-
-function Spine(props: { book: Book; open?: boolean; pile?: boolean; onClick: () => void }) {
-  const { book } = props;
-  const days = daysInPile(book);
-  const ratio = progressRatio(book);
-  // ฝุ่นคือความจริง ไม่ใช่การลงโทษ — เล่มที่กองนานกว่า 90 วันจะซีดลงนิดหนึ่ง
-  const dusty = props.pile && days > 90;
-
-  return (
-    <button
-      className={`spine${props.open ? ' open' : ''}${dusty ? ' dusty' : ''}`}
-      onClick={props.onClick}
-    >
-      <span className="spine-edge" style={{ background: book.color }} />
-      <span className="spine-body">
-        <span className="spine-title">{book.title}</span>
-        <span className="spine-meta">
-          {book.author ? book.author : 'ไม่ระบุผู้เขียน'}
-          {props.pile && ` · อยู่ในกอง ${days} วัน`}
-          {!props.pile && book.current > 0 && ` · ${posLabel(book, book.current)}`}
-        </span>
-        {!props.pile && ratio != null && ratio > 0 && (
-          <span className="progress">
-            <i style={{ width: `${Math.round(ratio * 100)}%` }} />
-          </span>
-        )}
-      </span>
-      {props.open && <span className="spine-right">เปิดอยู่</span>}
-    </button>
   );
 }

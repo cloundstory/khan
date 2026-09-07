@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../store/useApp';
 import { buildRecovery, daysAwayLabel } from '../lib/recovery';
-import { statsFor, daysInPile } from '../lib/stats';
+import { statsFor, daysInPile, readingMs } from '../lib/stats';
 import { posLabel, dateLabel, durationLabel } from '../lib/format';
 import { toDesk, toPile, reread } from '../db/books';
 import { addCard } from '../db/cards';
@@ -250,7 +250,7 @@ function SessionRow({
   return (
     <div className="session-row">
       <div className="session-top">
-        <span>{dateLabel(session.endedAt)} · {durationLabel(session.endedAt - session.startedAt)}</span>
+        <span>{dateLabel(session.endedAt)} · {durationLabel(readingMs(session))}</span>
         <span>{posLabel(book, session.startPos)} → {posLabel(book, session.endPos)}</span>
       </div>
       {session.note ? (
