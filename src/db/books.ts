@@ -1,4 +1,4 @@
-import { db, uid, type Book, type BookStatus, type Unit } from './schema';
+import { db, uid, type Book, type BookStatus, type Unit, type BookFormat } from './schema';
 
 /** ทุก write ต้องผ่านที่นี่ — component ห้ามเรียก Dexie ตรง */
 
@@ -19,6 +19,7 @@ export async function addBook(input: {
   intent?: string;
   isbn?: string;
   coverUrl?: string;
+  format?: BookFormat;
 }): Promise<Book> {
   const book: Book = {
     id: uid(),
@@ -29,6 +30,7 @@ export async function addBook(input: {
     total: input.total ? Math.round(input.total) : undefined,
     isbn: input.isbn || undefined,
     coverUrl: input.coverUrl || undefined,
+    format: input.format ?? 'physical',
     current: 0,
     status: 'pile',
     intent: input.intent?.trim() || undefined,

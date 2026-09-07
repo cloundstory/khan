@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useCoverPhoto } from '../lib/useCoverPhoto';
 import type { Book } from '../db/schema';
 import {
   drawGeneratedCover,
@@ -21,6 +22,9 @@ export default function Book3D({ book }: { book: Book }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [live, setLive] = useState(false);
+  // ปกที่ถ่ายเองมาก่อนปกจากฐานข้อมูลเสมอ — เป็นเล่มจริงของเจ้าของ
+  const photoUrl = useCoverPhoto(book.id, book.hasCoverPhoto);
+  const coverSrc = photoUrl ?? book.coverUrl;
 
   useEffect(() => {
     let disposed = false;
@@ -31,11 +35,12 @@ export default function Book3D({ book }: { book: Book }) {
       const wrap = wrapRef.current;
       if (!canvas || !wrap) return;
 
-      await fontsReady();
+      // ส่งชื่อเล่มไปด้วย เพื่อให้ subset อักษรไทยถูกโหลดก่อนวัดความกว้าง
+      await fontsReady(book.title);
 
       const [THREE, realCover] = await Promise.all([
         import('three'),
-        book.coverUrl ? loadCoverImage(book.coverUrl) : Promise.resolve(null),
+        coverSrc ? loadCoverImage(coverSrc) : Promise.resolve(null),
       ]);
       if (disposed) return;
 
@@ -166,13 +171,15 @@ export default function Book3D({ book }: { book: Book }) {
       disposed = true;
       cleanup?.();
     };
-  }, [book]);
+  }, [book, coverSrc]);
 
   return (
     <div className="book3d" ref={wrapRef}>
       {!live && (
         <div className="book3d-flat" style={{ background: book.color }} aria-hidden="true">
-          {book.coverUrl ? (
+          {photoUrl ? (
+            <img src={photoUrl} alt="" />
+          ) : book.coverUrl ? (
             <img src={book.coverUrl} alt="" crossOrigin="anonymous" />
           ) : (
             <span className="book3d-flat-title">{book.title}</span>

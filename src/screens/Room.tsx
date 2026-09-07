@@ -2,6 +2,7 @@ import { useApp } from '../store/useApp';
 import { openBookId, daysInPile } from '../lib/stats';
 import { buildRecovery, daysAwayLabel } from '../lib/recovery';
 import { posLabel, progressRatio } from '../lib/format';
+import { useCoverPhoto } from '../lib/useCoverPhoto';
 import type { Book, Session } from '../db/schema';
 
 export default function Room() {
@@ -58,34 +59,9 @@ export default function Room() {
         ) : (
           <>
             <div className="shelf">
-              {shelf.map((b) => {
-                const d = spineSize(b);
-                return (
-                  <button
-                    key={b.id}
-                    className="vol"
-                    style={
-                      {
-                        '--c': b.color,
-                        '--sw': `${d.sw}px`,
-                        '--h': `${d.h}px`,
-                        '--cw': '30px',
-                      } as React.CSSProperties
-                    }
-                    aria-label={`${b.title}${b.author ? ` โดย ${b.author}` : ''}`}
-                    onClick={() => go({ name: 'book', bookId: b.id })}
-                  >
-                    <span className="vol-spine">
-                      <span className="vol-title">{b.title}</span>
-                    </span>
-                    {/* แผ่นปกที่พับลึกเข้าไป — ถ้ามีปกจริงก็เห็นเสี้ยวหนึ่งของมันตรงนี้ */}
-                    <span
-                      className="vol-cover"
-                      style={b.coverUrl ? { backgroundImage: `url("${b.coverUrl}")` } : undefined}
-                    />
-                  </button>
-                );
-              })}
+              {shelf.map((b) => (
+                <Spine key={b.id} book={b} onClick={() => go({ name: 'book', bookId: b.id })} />
+              ))}
             </div>
             <div className="plank" />
           </>
@@ -105,20 +81,7 @@ export default function Room() {
             {closed.length > 0 && (
               <div className="lying">
                 {closed.map((b) => (
-                  <button
-                    key={b.id}
-                    className="lying-bk"
-                    style={{ '--c': b.color } as React.CSSProperties}
-                    onClick={() => go({ name: 'book', bookId: b.id })}
-                  >
-                    {/* crossOrigin เพื่อให้เป็นคำขอแบบ cors เหมือนกับที่ Book3D ใช้ fetch
-                      ไม่งั้น service worker จะเก็บ opaque response ไว้แล้วทำให้ 3D โหลดปกไม่ได้ */}
-                  {b.coverUrl && (
-                    <img className="mini-cover" src={b.coverUrl} alt="" crossOrigin="anonymous" />
-                  )}
-                    <span className="t">{b.title}</span>
-                    {b.current > 0 && <span className="m">{posLabel(b, b.current)}</span>}
-                  </button>
+                  <LyingBook key={b.id} book={b} onClick={() => go({ name: 'book', bookId: b.id })} />
                 ))}
               </div>
             )}
@@ -132,31 +95,14 @@ export default function Room() {
         ) : (
           /* column-reverse ใน CSS — เล่มแรกของอาร์เรย์ (เก่าสุด) จึงไปอยู่ก้นกอง */
           <div className="pile">
-            {pile.map((b, i) => {
-              const days = daysInPile(b);
-              return (
-                <button
-                  key={b.id}
-                  className={`pile-bk${days > 90 ? ' dusty' : ''}`}
-                  style={
-                    {
-                      '--c': b.color,
-                      '--dx': `${(i % 2 ? 1 : -1) * (2 + (i % 3) * 2)}px`,
-                      '--rot': `${((i % 2 ? 1 : -1) * (0.3 + (i % 3) * 0.22)).toFixed(2)}deg`,
-                    } as React.CSSProperties
-                  }
-                  onClick={() => go({ name: 'book', bookId: b.id })}
-                >
-                  {/* crossOrigin เพื่อให้เป็นคำขอแบบ cors เหมือนกับที่ Book3D ใช้ fetch
-                      ไม่งั้น service worker จะเก็บ opaque response ไว้แล้วทำให้ 3D โหลดปกไม่ได้ */}
-                  {b.coverUrl && (
-                    <img className="mini-cover" src={b.coverUrl} alt="" crossOrigin="anonymous" />
-                  )}
-                  <span className="t">{b.title}</span>
-                  <span className="d">{days} วัน</span>
-                </button>
-              );
-            })}
+            {pile.map((b, i) => (
+              <PileBook
+                key={b.id}
+                book={b}
+                index={i}
+                onClick={() => go({ name: 'book', bookId: b.id })}
+              />
+            ))}
           </div>
         )}
       </Zone>
@@ -179,6 +125,89 @@ function spineSize(book: Book): { sw: number; h: number } {
     sw: Math.round(clamp(15 + book.total / 26, 15, 40)),
     h: Math.round(clamp(104 + book.total / 11, 96, 165)),
   };
+}
+
+/** ปกจริงขนาดเล็ก — ที่ถ่ายเองมาก่อนของจากฐานข้อมูลเสมอ */
+function MiniCover({ book }: { book: Book }) {
+  const photo = useCoverPhoto(book.id, book.hasCoverPhoto);
+  const src = photo ?? book.coverUrl;
+  if (!src) return null;
+  return (
+    <img
+      className="mini-cover"
+      src={src}
+      alt=""
+      // รูปจากโดเมนอื่นต้องขอแบบ cors ให้ตรงกับที่ Book3D ใช้ fetch
+      // ไม่งั้น service worker จะเก็บ opaque response แล้วทำให้ 3D โหลดปกไม่ได้
+      crossOrigin={photo ? undefined : 'anonymous'}
+    />
+  );
+}
+
+function Spine({ book, onClick }: { book: Book; onClick: () => void }) {
+  const photo = useCoverPhoto(book.id, book.hasCoverPhoto);
+  const cover = photo ?? book.coverUrl;
+  const d = spineSize(book);
+  return (
+    <button
+      className="vol"
+      style={
+        {
+          '--c': book.color,
+          '--sw': `${d.sw}px`,
+          '--h': `${d.h}px`,
+          '--cw': '30px',
+        } as React.CSSProperties
+      }
+      aria-label={`${book.title}${book.author ? ` โดย ${book.author}` : ''}`}
+      onClick={onClick}
+    >
+      <span className="vol-spine">
+        <span className="vol-title">{book.title}</span>
+      </span>
+      {/* แผ่นปกที่พับลึกเข้าไป — ถ้ามีปกจริงก็เห็นเสี้ยวหนึ่งของมันตรงนี้ */}
+      <span
+        className="vol-cover"
+        style={cover ? { backgroundImage: `url("${cover}")` } : undefined}
+      />
+    </button>
+  );
+}
+
+function LyingBook({ book, onClick }: { book: Book; onClick: () => void }) {
+  return (
+    <button
+      className="lying-bk"
+      style={{ '--c': book.color } as React.CSSProperties}
+      onClick={onClick}
+    >
+      <MiniCover book={book} />
+      <span className="t">{book.title}</span>
+      {book.current > 0 && <span className="m">{posLabel(book, book.current)}</span>}
+    </button>
+  );
+}
+
+function PileBook({ book, index, onClick }: { book: Book; index: number; onClick: () => void }) {
+  const days = daysInPile(book);
+  const sign = index % 2 ? 1 : -1;
+  return (
+    <button
+      className={`pile-bk${days > 90 ? ' dusty' : ''}`}
+      style={
+        {
+          '--c': book.color,
+          '--dx': `${sign * (2 + (index % 3) * 2)}px`,
+          '--rot': `${(sign * (0.3 + (index % 3) * 0.22)).toFixed(2)}deg`,
+        } as React.CSSProperties
+      }
+      onClick={onClick}
+    >
+      <MiniCover book={book} />
+      <span className="t">{book.title}</span>
+      <span className="d">{days} วัน</span>
+    </button>
+  );
 }
 
 function OpenBook(props: { book: Book; sessions: Session[]; onClick: () => void }) {

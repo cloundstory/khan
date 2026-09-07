@@ -27,6 +27,13 @@ export function clockLabel(ms: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
+/** บอกขนาดไฟล์ backup ให้เห็น จะได้รู้ตัวว่ามันโตขึ้นเรื่อย ๆ ตามรูปปกที่ถ่ายเก็บไว้ */
+export function fileSizeLabel(bytes: number): string {
+  if (bytes < 1024) return `${bytes} ไบต์`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 export function dateLabel(ms: number): string {
   return new Date(ms).toLocaleDateString('th-TH', {
     day: 'numeric', month: 'short', year: '2-digit',

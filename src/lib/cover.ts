@@ -25,9 +25,32 @@ function pieces(text: string): string[] {
   }
 }
 
+/** ตัดทีละกลุ่มอักษร ไม่ใช่ทีละ code unit — สระกับวรรณยุกต์จะได้ไม่หลุดจากพยัญชนะ */
+function graphemes(text: string): string[] {
+  try {
+    const seg = new Intl.Segmenter('th', { granularity: 'grapheme' });
+    return [...seg.segment(text)].map((s) => s.segment);
+  } catch {
+    return Array.from(text);
+  }
+}
+
 function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
   const lines: string[] = [];
   let line = '';
+
+  const flushOverflow = () => {
+    // คำเดียวยาวเกินหนึ่งบรรทัด (ชื่อไทยยาว ๆ ที่ไม่มีจุดตัด) — ต้องตัดกลางคำ
+    while (ctx.measureText(line).width > maxWidth) {
+      const gs = graphemes(line);
+      if (gs.length <= 1) return;
+      let cut = gs.length - 1;
+      while (cut > 1 && ctx.measureText(gs.slice(0, cut).join('')).width > maxWidth) cut--;
+      lines.push(gs.slice(0, cut).join(''));
+      line = gs.slice(cut).join('');
+    }
+  };
+
   for (const p of pieces(text)) {
     const next = line + p;
     if (line && ctx.measureText(next).width > maxWidth) {
@@ -36,18 +59,55 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): st
     } else {
       line = next;
     }
+    flushOverflow();
   }
   if (line.trim()) lines.push(line.trimEnd());
   return lines;
 }
 
-/** รอฟอนต์ก่อนวาด ไม่งั้นจะได้ฟอนต์สำรองแล้ววัดความกว้างผิด */
-export async function fontsReady(): Promise<void> {
+/**
+ * รอฟอนต์ก่อนวาด ไม่งั้นจะได้ฟอนต์สำรองแล้ววัดความกว้างผิด
+ * ต้องสั่งโหลดตัวอักษรที่จะใช้จริงด้วย เพราะ Google Fonts แบ่ง subset
+ * ชุดอักษรไทยจะถูกโหลดต่อเมื่อมีการใช้จริงเท่านั้น
+ */
+export async function fontsReady(sample = 'ก'): Promise<void> {
   try {
+    await Promise.all([
+      document.fonts.load(`500 46px "Noto Serif Thai"`, sample),
+      document.fonts.load(`400 26px "IBM Plex Sans Thai"`, sample),
+    ]);
     await document.fonts.ready;
   } catch {
     /* เบราว์เซอร์เก่าไม่มี document.fonts — วาดไปเลย */
   }
+}
+
+/**
+ * หาขนาดตัวอักษรที่ใหญ่ที่สุดที่ยังใส่ลงกรอบได้พอดี
+ * ชื่อหนังสือไทยยาวกว่าอังกฤษมาก ถ้าใช้ขนาดตายตัวจะล้นออกนอกปก
+ */
+function fitLines(
+  g: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxHeight: number,
+  weight: string,
+  family: string,
+  from: number,
+  to: number
+): { lines: string[]; size: number; lineH: number } {
+  let best = { lines: [text], size: to, lineH: to * 1.3 };
+  for (let size = from; size >= to; size -= 2) {
+    g.font = `${weight} ${size}px ${family}`;
+    const lines = wrap(g, text, maxWidth);
+    const lineH = size * 1.3;
+    const fits =
+      lines.length * lineH <= maxHeight &&
+      lines.every((l) => g.measureText(l).width <= maxWidth);
+    best = { lines, size, lineH };
+    if (fits) return best;
+  }
+  return best;
 }
 
 export function drawGeneratedCover(book: Book): HTMLCanvasElement {
@@ -77,14 +137,16 @@ export function drawGeneratedCover(book: Book): HTMLCanvasElement {
 
   g.textAlign = 'center';
   g.fillStyle = ink;
-  g.font = '500 46px "Noto Serif Thai", Georgia, serif';
 
-  const lines = wrap(g, book.title, W - pad * 2.6).slice(0, 5);
-  const lineH = 60;
-  let y = H * 0.4 - ((lines.length - 1) * lineH) / 2;
-  for (const l of lines) {
+  // ย่อขนาดตัวอักษรจนกว่าชื่อจะพอดีเล่ม — ชื่อไทยยาวกว่าอังกฤษมาก
+  const serif = '"Noto Serif Thai", Georgia, serif';
+  const fit = fitLines(g, book.title, W - pad * 2.6, H * 0.44, '500', serif, 46, 22);
+  g.font = `500 ${fit.size}px ${serif}`;
+
+  let y = H * 0.4 - ((fit.lines.length - 1) * fit.lineH) / 2;
+  for (const l of fit.lines) {
     g.fillText(l, W / 2, y);
-    y += lineH;
+    y += fit.lineH;
   }
 
   if (book.author) {
@@ -133,9 +195,13 @@ export function drawSpine(book: Book): HTMLCanvasElement {
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.fillStyle = 'rgba(246, 242, 233, 0.94)';
-  g.font = '500 44px "Noto Serif Thai", Georgia, serif';
-  const t = wrap(g, book.title, sh - 120)[0] ?? book.title;
-  g.fillText(t, 0, 0);
+
+  // สันมีที่ให้บรรทัดเดียว — ย่อจนพอดีก่อน ถ้ายังไม่พอค่อยตัดท้าย
+  const serif = '"Noto Serif Thai", Georgia, serif';
+  const fit = fitLines(g, book.title, sh - 120, 1, '500', serif, 44, 22);
+  g.font = `500 ${fit.size}px ${serif}`;
+  const text = fit.lines.length > 1 ? fit.lines[0].trimEnd() + '…' : fit.lines[0];
+  g.fillText(text, 0, 0);
   g.restore();
 
   return cv;

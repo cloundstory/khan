@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useApp } from '../store/useApp';
 import { downloadBackup, importBackup } from '../db/export';
 import { deleteBook } from '../db/books';
+import { fileSizeLabel } from '../lib/format';
 
 export default function Settings() {
   const { books, go, refresh, say } = useApp();
@@ -40,7 +41,10 @@ export default function Settings() {
 
       <div className="section-label">ข้อมูล</div>
       <div className="btn-row" style={{ marginTop: 0 }}>
-        <button className="btn btn-quiet" onClick={() => downloadBackup().then(() => say('ส่งออกแล้ว'))}>
+        <button
+          className="btn btn-quiet"
+          onClick={() => downloadBackup().then((bytes) => say(`ส่งออกแล้ว · ${fileSizeLabel(bytes)}`))}
+        >
           ส่งออกเป็นไฟล์ JSON
         </button>
         <button className="btn btn-quiet" onClick={() => fileRef.current?.click()}>

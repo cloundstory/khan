@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useApp } from '../store/useApp';
 import { addBook } from '../db/books';
-import { COVER_COLORS, type Unit } from '../db/schema';
+import { putCoverPhoto } from '../db/covers';
+import { shrinkToCover } from '../lib/photo';
+import { COVER_COLORS, type Unit, type BookFormat } from '../db/schema';
 import { lookupIsbn, normalizeIsbn, isValidIsbn13, LookupError } from '../lib/isbn';
 import { loadCoverImage, dominantColor } from '../lib/cover';
 import BarcodeScanner from '../components/BarcodeScanner';
@@ -23,6 +25,10 @@ export default function AddBook() {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [unit, setUnit] = useState<Unit>('page');
+  const [format, setFormat] = useState<BookFormat>('physical');
+  const [photo, setPhoto] = useState<Blob | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [total, setTotal] = useState('');
   const [intent, setIntent] = useState('');
   const [color, setColor] = useState(COVER_COLORS[0]);
@@ -101,10 +107,40 @@ export default function AddBook() {
     }
   }
 
+  /** ถ่ายปกเอง — หนังสือไทยส่วนใหญ่ไม่มีในฐานข้อมูล และปกไทยสวยกว่าฉบับอังกฤษเยอะ */
+  async function pickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const small = await shrinkToCover(file);
+      setPhoto(small);
+      setPhotoUrl((old) => {
+        if (old) URL.revokeObjectURL(old);
+        return URL.createObjectURL(small);
+      });
+
+      // ดึงสีสันจากรูปที่ถ่ายด้วย เหมือนที่ทำกับปกจากฐานข้อมูล
+      const bmp = await createImageBitmap(small);
+      const cv = document.createElement('canvas');
+      cv.width = bmp.width;
+      cv.height = bmp.height;
+      cv.getContext('2d')?.drawImage(bmp, 0, 0);
+      bmp.close();
+      const picked = dominantColor(cv);
+      if (picked) {
+        setCoverColor(picked);
+        setColor(picked);
+      }
+    } catch {
+      say('ใช้รูปนี้ไม่ได้ ลองรูปอื่น');
+    }
+  }
+
   async function save() {
     setSaving(true);
     const parsed = parseInt(total, 10);
-    await addBook({
+    const book = await addBook({
       title,
       author,
       color,
@@ -113,7 +149,9 @@ export default function AddBook() {
       intent,
       isbn: isbn || undefined,
       coverUrl,
+      format,
     });
+    if (photo) await putCoverPhoto(book.id, photo);
     await refresh();
     go({ name: 'room' });
     say('วางลงกองแล้ว');
@@ -212,17 +250,49 @@ export default function AddBook() {
         </div>
       )}
 
-      {coverUrl && (
-        <div className="cover-found">
-          <img src={coverUrl} alt="" crossOrigin="anonymous" />
-          <div>
-            <div className="cover-found-label">ปกจริงจาก Open Library</div>
-            <button className="cover-drop" onClick={() => setCoverUrl(undefined)}>
+      <div className="cover-slot">
+        <div className="cover-thumb">
+          {photoUrl ? (
+            <img src={photoUrl} alt="" />
+          ) : coverUrl ? (
+            <img src={coverUrl} alt="" crossOrigin="anonymous" />
+          ) : (
+            <span className="cover-thumb-empty">ยังไม่มีปก</span>
+          )}
+          <button className="cover-cam" onClick={() => fileRef.current?.click()} aria-label="ถ่ายปกเอง">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 8.5h3l1.4-2h7.2L17 8.5h3v10H4z" />
+              <circle cx="12" cy="13" r="3.2" />
+            </svg>
+          </button>
+        </div>
+        <div className="cover-meta">
+          <div className="cover-found-label">
+            {photoUrl
+              ? 'ปกที่คุณถ่ายเอง'
+              : coverUrl
+                ? 'ปกจริงจาก Open Library'
+                : 'ถ่ายปกเองได้ — หนังสือไทยส่วนใหญ่ไม่มีในฐานข้อมูล และปกไทยสวยกว่าฉบับแปลเยอะ'}
+          </div>
+          {(photoUrl || coverUrl) && (
+            <button
+              className="cover-drop"
+              onClick={() => {
+                if (photoUrl) {
+                  URL.revokeObjectURL(photoUrl);
+                  setPhotoUrl(null);
+                  setPhoto(null);
+                } else {
+                  setCoverUrl(undefined);
+                }
+              }}
+            >
               ไม่ใช้ปกนี้
             </button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
+      <input ref={fileRef} type="file" accept="image/*" hidden onChange={pickPhoto} />
 
       <div className="field">
         <label htmlFor="title">ชื่อเล่ม</label>
@@ -232,6 +302,32 @@ export default function AddBook() {
       <div className="field">
         <label htmlFor="author">ผู้เขียน</label>
         <input id="author" value={author} onChange={(e) => setAuthor(e.target.value)} />
+      </div>
+
+      <div className="field">
+        <label>รูปแบบ</label>
+        <div className="chips">
+          {([
+            ['physical', 'เล่มกระดาษ'],
+            ['ebook', 'ebook'],
+            ['audio', 'หนังสือเสียง'],
+          ] as const).map(([value, label]) => (
+            <button
+              key={value}
+              className="chip"
+              aria-pressed={format === value}
+              onClick={() => {
+                setFormat(value);
+                // ebook กับหนังสือเสียงไม่มีเลขหน้าให้ยึด นับเป็นเปอร์เซ็นต์ตรงกว่า
+                // แต่ถ้าค้นเจอจำนวนหน้ามาแล้วก็เคารพของเดิม
+                if (value !== 'physical' && !total) setUnit('percent');
+                if (value === 'physical' && total) setUnit('page');
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* คำถามเดียวที่แอปอื่นไม่ถาม — ไม่พับไว้ ไม่งั้นเท่ากับบอกว่าเป็นของแถม */}

@@ -1,4 +1,5 @@
 import { db, SCHEMA_VERSION, type Book, type Session, type Card, type Thread } from './schema';
+import { blobToDataUrl, dataUrlToBlob } from '../lib/photo';
 
 export interface Backup {
   app: 'khan';
@@ -8,15 +9,26 @@ export interface Backup {
   sessions: Session[];
   cards: Card[];
   threads: Thread[];
+  /**
+   * รูปปกที่ถ่ายเอง เก็บเป็น data URL
+   * ทำให้ไฟล์โตขึ้นราว 50-80 KB ต่อรูป แต่ backup ที่กู้คืนได้ไม่ครบก็ไม่ใช่ backup
+   */
+  coverPhotos?: Array<{ bookId: string; dataUrl: string }>;
 }
 
 export async function buildBackup(): Promise<Backup> {
-  const [books, sessions, cards, threads] = await Promise.all([
+  const [books, sessions, cards, threads, covers] = await Promise.all([
     db.books.toArray(),
     db.sessions.toArray(),
     db.cards.toArray(),
     db.threads.toArray(),
+    db.covers.toArray(),
   ]);
+
+  const coverPhotos = await Promise.all(
+    covers.map(async (c) => ({ bookId: c.bookId, dataUrl: await blobToDataUrl(c.blob) }))
+  );
+
   return {
     app: 'khan',
     schemaVersion: SCHEMA_VERSION,
@@ -25,10 +37,12 @@ export async function buildBackup(): Promise<Backup> {
     sessions,
     cards,
     threads,
+    coverPhotos,
   };
 }
 
-export async function downloadBackup(): Promise<void> {
+/** คืนขนาดไฟล์เป็นไบต์ เพื่อให้บอกผู้ใช้ได้ว่าไฟล์กำลังโตขึ้นแค่ไหน */
+export async function downloadBackup(): Promise<number> {
   const backup = await buildBackup();
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -37,10 +51,11 @@ export async function downloadBackup(): Promise<void> {
   a.download = `khan-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
+  return blob.size;
 }
 
 export interface ImportResult {
-  added: { books: number; sessions: number; cards: number; threads: number };
+  added: { books: number; sessions: number; cards: number; threads: number; photos: number };
   skipped: number;
 }
 
@@ -55,7 +70,7 @@ export async function importBackup(json: unknown): Promise<ImportResult> {
   }
 
   const result: ImportResult = {
-    added: { books: 0, sessions: 0, cards: 0, threads: 0 },
+    added: { books: 0, sessions: 0, cards: 0, threads: 0, photos: 0 },
     skipped: 0,
   };
 
@@ -81,6 +96,19 @@ export async function importBackup(json: unknown): Promise<ImportResult> {
       result.added.threads++;
     }
   });
+
+  // รูปปกแปลงกลับเป็น Blob นอก transaction เพราะ fetch(dataUrl) เป็น async ที่ Dexie คุมไม่ได้
+  for (const p of data.coverPhotos ?? []) {
+    if (await db.covers.get(p.bookId)) { result.skipped++; continue; }
+    try {
+      const blob = await dataUrlToBlob(p.dataUrl);
+      await db.covers.put({ bookId: p.bookId, blob, addedAt: Date.now() });
+      await db.books.update(p.bookId, { hasCoverPhoto: true });
+      result.added.photos++;
+    } catch {
+      result.skipped++;
+    }
+  }
 
   return result;
 }
