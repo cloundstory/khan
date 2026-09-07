@@ -316,13 +316,57 @@ input, textarea, select { font: inherit; color: inherit; }
 }
 .book-head { text-align: center; margin-bottom: 22px; }
 
-/* ---------- ค้นจาก ISBN ---------- */
-.lookup {
-  display: flex; flex-direction: column; gap: 9px;
-  padding: 14px; margin-bottom: 20px;
+/* ---------- เลือกวิธีเพิ่มหนังสือ ---------- */
+.choice { display: flex; flex-direction: column; gap: 11px; margin-top: 4px; }
+.choice-card {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; text-align: left;
+  padding: 16px 16px 16px 14px;
   background: var(--paper-hi);
-  border: 1px solid var(--line-soft); border-radius: 7px;
+  border: 1px solid var(--line-soft); border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(42, 38, 34, 0.06);
+  transition: background 140ms ease;
 }
+.choice-card:active { background: var(--paper-low); }
+.choice-icon {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--paper-low); color: var(--ink-soft);
+  display: grid; place-items: center; flex: 0 0 auto;
+}
+.choice-text { min-width: 0; }
+.choice-text b { display: block; font-family: var(--serif); font-size: 15.5px; font-weight: 500; color: var(--ink); }
+.choice-text span { display: block; font-size: 12.5px; line-height: 1.55; color: var(--ink-soft); margin-top: 3px; }
+.choice-card .chev { margin-left: auto; color: var(--ink-faint); font-size: 20px; flex: 0 0 auto; }
+
+/* ---------- คำถามที่แอปอื่นไม่ถาม — ให้น้ำหนักมากกว่าช่องอื่น ---------- */
+.intent-field {
+  background: var(--paper-hi);
+  border: 1px solid var(--line-soft); border-radius: 8px;
+  padding: 14px 14px 12px;
+}
+.intent-field label { font-family: var(--serif); font-size: 14px; color: var(--ink); margin-bottom: 8px; }
+
+/* ---------- ส่วนที่พับไว้ ---------- */
+.more { border-top: 1px solid var(--line); margin-top: 22px; }
+.more > summary {
+  list-style: none; cursor: pointer;
+  padding: 14px 0; font-size: 13.5px; color: var(--ink-soft);
+  display: flex; align-items: center;
+}
+.more > summary::-webkit-details-marker { display: none; }
+.more > summary::after { content: '⌄'; margin-left: auto; font-size: 15px; line-height: 1; transition: transform 160ms ease; }
+.more[open] > summary::after { transform: rotate(180deg); }
+
+/* ---------- เจอเล่มซ้ำ ---------- */
+.dup {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--paper-hi); border: 1px solid var(--brass);
+  border-radius: 8px; padding: 13px 14px; margin-bottom: 18px;
+  font-size: 13.5px; color: var(--ink);
+}
+.dup-go { border: 1px solid var(--line); border-radius: 999px; padding: 7px 16px; font-size: 13px; margin-left: auto; }
+
+/* ---------- ค้นจาก ISBN ---------- */
 .lookup-row { display: flex; gap: 8px; }
 .lookup-row input {
   flex: 1; min-width: 0;
@@ -345,7 +389,10 @@ input, textarea, select { font: inherit; color: inherit; }
   box-shadow: 0 2px 5px rgba(42, 38, 34, 0.22), 0 8px 18px rgba(42, 38, 34, 0.14);
 }
 .cover-found-label { font-size: 12.5px; color: var(--ink-soft); }
-.cover-drop { padding: 4px 0 0; text-align: left; }
+.cover-drop {
+  margin-top: 8px; font-size: 12.5px; color: var(--ink-soft);
+  border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px;
+}
 
 /* ---------- กล้องสแกนบาร์โค้ด ---------- */
 .scanner { position: fixed; inset: 0; background: #0d100f; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 80; }
@@ -371,6 +418,11 @@ input, textarea, select { font: inherit; color: inherit; }
   margin-top: 22px; padding: 0 28px;
   color: #ede7da; font-size: 13.5px; line-height: 1.7; text-align: center;
   max-width: 34ch;
+}
+.scanner-manual {
+  position: relative; z-index: 2; margin-top: 14px;
+  font-size: 14px; color: #f0b962; padding: 8px 12px;
+  text-decoration: underline; text-underline-offset: 3px;
 }
 .scanner-close {
   position: absolute; z-index: 2;

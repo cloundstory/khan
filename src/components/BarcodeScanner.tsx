@@ -12,6 +12,7 @@ import { normalizeIsbn, looksLikeBook } from '../lib/isbn';
  */
 export default function BarcodeScanner(props: {
   onFound: (isbn: string) => void;
+  onManual: () => void;
   onClose: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -127,6 +128,11 @@ export default function BarcodeScanner(props: {
         {status === 'found' && 'เจอแล้ว'}
         {status === 'error' && error}
       </div>
+
+      {/* ทางสำรองอยู่ตรงจุดที่ต้องการมันพอดี ไม่ต้องถอยออกไปหาเอง */}
+      <button className="scanner-manual" onClick={props.onManual}>
+        กรอกเลข ISBN เอง
+      </button>
 
       <button className="scanner-close" onClick={props.onClose}>
         ปิดกล้อง
