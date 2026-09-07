@@ -61,7 +61,13 @@ export async function getBarcodeDetector(): Promise<Detector> {
 /** กล้องหลังคือกล้องที่ใช้ส่องปกหนังสือ ไม่ใช่กล้องหน้า */
 export function openCamera(): Promise<MediaStream> {
   return navigator.mediaDevices.getUserMedia({
-    video: { facingMode: { ideal: 'environment' } },
+    // ขอความละเอียดสูงเพราะเส้นบาร์โค้ดบางมาก ภาพหยาบจะอ่านไม่ออก
+    // เราครอปเฉพาะในกรอบก่อนถอดรหัสอยู่แล้ว ความละเอียดสูงจึงไม่ทำให้ช้าลง
+    video: {
+      facingMode: { ideal: 'environment' },
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+    },
     audio: false,
   });
 }

@@ -280,6 +280,8 @@ input, textarea, select { font: inherit; color: inherit; }
 .swatches { display: flex; flex-wrap: wrap; gap: 9px; }
 .swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; transition: transform 0.12s, border-color 0.12s; }
 .swatch[aria-pressed='true'] { border-color: var(--ink); transform: scale(1.12); }
+/* สีที่ดึงมาจากปกจริง — ทำเครื่องหมายไว้ว่าไม่ได้มาจากชุดสีมาตรฐาน */
+.swatch.from-cover { box-shadow: 0 0 0 1px var(--paper), 0 0 0 2px var(--brass); }
 
 /* ---------- หน้าจออ่าน — ข้อยกเว้นหน้าเดียวที่ยังมืด ---------- */
 .reading { position: fixed; inset: 0; background: var(--room-deep); color: var(--room-dim); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px; padding: 28px; }
@@ -348,12 +350,32 @@ input, textarea, select { font: inherit; color: inherit; }
 /* ---------- กล้องสแกนบาร์โค้ด ---------- */
 .scanner { position: fixed; inset: 0; background: #0d100f; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 80; }
 .scanner-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-/* กรอบเล็งให้รู้ว่าต้องวางบาร์โค้ดตรงไหน */
+/* กรอบเล็ง — ทรงเตี้ยและกว้างตามสัดส่วนบาร์โค้ดจริง
+   และเป็นขอบเขตที่เราครอปไปถอดรหัสจริง ๆ ไม่ใช่แค่ของประดับ */
 .scanner-frame {
   position: relative; z-index: 1;
-  width: min(78vw, 320px); height: 30vh; max-height: 190px;
-  border: 2px solid rgba(237, 231, 218, 0.9); border-radius: 10px;
-  box-shadow: 0 0 0 100vmax rgba(13, 16, 15, 0.55);
+  width: min(86vw, 340px); height: 128px;
+  border: 2px solid #d9a04b; border-radius: 8px;
+  box-shadow: 0 0 0 100vmax rgba(13, 16, 15, 0.6), 0 0 14px rgba(217, 160, 75, 0.4);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.scanner-frame.is-found {
+  border-color: var(--sage);
+  box-shadow: 0 0 0 100vmax rgba(13, 16, 15, 0.6), 0 0 22px rgba(127, 168, 143, 0.75);
+}
+/* เส้นกวาด — บอกว่ากำลังอ่านอยู่ ไม่ได้ค้าง */
+.scanner-line {
+  position: absolute; left: 8px; right: 8px; height: 2px;
+  background: linear-gradient(90deg, transparent, #f0b962, transparent);
+  box-shadow: 0 0 10px rgba(240, 185, 98, 0.85);
+  animation: scan-sweep 1.9s ease-in-out infinite;
+}
+@keyframes scan-sweep {
+  0%, 100% { top: 10%; }
+  50% { top: 88%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scanner-line { display: none; }
 }
 .scanner-msg {
   position: relative; z-index: 1;

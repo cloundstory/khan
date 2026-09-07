@@ -3,6 +3,7 @@ import { useApp } from '../store/useApp';
 import { addBook } from '../db/books';
 import { COVER_COLORS, type Unit } from '../db/schema';
 import { lookupIsbn, normalizeIsbn, isValidIsbn13, LookupError } from '../lib/isbn';
+import { loadCoverImage, dominantColor } from '../lib/cover';
 import BarcodeScanner from '../components/BarcodeScanner';
 
 type Lookup =
@@ -24,6 +25,7 @@ export default function AddBook() {
 
   const [isbn, setIsbn] = useState('');
   const [coverUrl, setCoverUrl] = useState<string | undefined>();
+  const [coverColor, setCoverColor] = useState<string | undefined>();
   const [lookup, setLookup] = useState<Lookup>({ state: 'idle' });
   const [scanning, setScanning] = useState(false);
 
@@ -51,6 +53,16 @@ export default function AddBook() {
       }
       setCoverUrl(info.coverUrl);
       setLookup({ state: 'found' });
+
+      // เดาสีสันจากปกให้เลย จะได้ไม่ต้องบังคับให้เลือกสีตอนเพิ่มเล่ม
+      if (info.coverUrl) {
+        const canvas = await loadCoverImage(info.coverUrl);
+        const picked = canvas && dominantColor(canvas);
+        if (picked) {
+          setCoverColor(picked);
+          setColor(picked);
+        }
+      }
     } catch (e) {
       setLookup({
         state: 'error',
@@ -190,19 +202,21 @@ export default function AddBook() {
       <div className="field">
         <label>{coverUrl ? 'สีสัน' : 'สีปก'}</label>
         {coverUrl && (
-          <div className="field-hint" style={{ marginTop: 0, marginBottom: 8 }}>
-            ปกจริงจะใช้ตอนหยิบเล่มขึ้นมาดู ส่วนสีนี้ใช้กับสันหนังสือบนชั้นและแถบในกอง
-            ซึ่งเป็นด้านที่มองไม่เห็นปก
+          <div className="field-hint" style={{ marginTop: 0, marginBottom: 9 }}>
+            {coverColor
+              ? 'เลือกสีจากปกให้แล้ว — สีนี้ใช้กับสันบนชั้นและแถบในกอง ซึ่งเป็นด้านที่มองไม่เห็นปก เปลี่ยนได้ถ้าไม่ชอบ'
+              : 'สีนี้ใช้กับสันบนชั้นและแถบในกอง ซึ่งเป็นด้านที่มองไม่เห็นปก'}
           </div>
         )}
         <div className="swatches">
-          {COVER_COLORS.map((c) => (
+          {(coverColor ? [coverColor, ...COVER_COLORS] : COVER_COLORS).map((c, i) => (
             <button
-              key={c}
-              className="swatch"
+              key={`${c}-${i}`}
+              className={`swatch${coverColor && i === 0 ? ' from-cover' : ''}`}
               style={{ background: c }}
               aria-pressed={color === c}
-              aria-label={`สี ${c}`}
+              aria-label={coverColor && i === 0 ? `สีจากปก ${c}` : `สี ${c}`}
+              title={coverColor && i === 0 ? 'สีจากปก' : undefined}
               onClick={() => setColor(c)}
             />
           ))}

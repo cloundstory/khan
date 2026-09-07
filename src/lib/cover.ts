@@ -161,6 +161,83 @@ export function drawPageEdge(): HTMLCanvasElement {
 }
 
 /**
+ * ดึงสีเด่นจากปกจริง เอาไปใช้เป็นสีสัน
+ *
+ * หนังสือจริงสันมักเป็นสีเดียวกับปก การเดาสีจากปกจึงตรงกว่าให้คนเลือกเอง
+ * และทำให้ไม่ต้องบังคับให้ตัดสินใจตอนเพิ่มเล่ม
+ *
+ * บีบ saturation กับ lightness ให้อยู่ในช่วงเดียวกับ COVER_COLORS
+ * ไม่งั้นปกที่สีจัดจะได้สันสีสดจนหลุดจากโทนห้อง
+ */
+export function dominantColor(cover: HTMLCanvasElement): string | null {
+  const s = 24;
+  const cv = document.createElement('canvas');
+  cv.width = s;
+  cv.height = Math.round(s * 1.5);
+  const g = cv.getContext('2d', { willReadFrequently: true });
+  if (!g) return null;
+  g.drawImage(cover, 0, 0, cv.width, cv.height);
+
+  let data: Uint8ClampedArray;
+  try {
+    data = g.getImageData(0, 0, cv.width, cv.height).data;
+  } catch {
+    return null;
+  }
+
+  let r = 0, gr = 0, b = 0, weight = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const [pr, pg, pb] = [data[i], data[i + 1], data[i + 2]];
+    const max = Math.max(pr, pg, pb) / 255;
+    const min = Math.min(pr, pg, pb) / 255;
+    const l = (max + min) / 2;
+    const sat = max === min ? 0 : (max - min) / (l > 0.5 ? 2 - max - min : max + min);
+    if (l > 0.92 || l < 0.08 || sat < 0.12) continue; // ข้ามขาว ดำ และสีจืด
+    const w = sat;
+    r += pr * w; gr += pg * w; b += pb * w; weight += w;
+  }
+  if (weight === 0) return null;
+
+  return clampToRoomTone(r / weight, gr / weight, b / weight);
+}
+
+function clampToRoomTone(r: number, g: number, b: number): string {
+  const [h, s, l] = rgbToHsl(r, g, b);
+  const [nr, ng, nb] = hslToRgb(h, Math.min(0.42, Math.max(0.16, s)), Math.min(0.56, Math.max(0.34, l)));
+  const hex = (n: number) => Math.round(n).toString(16).padStart(2, '0');
+  return `#${hex(nr)}${hex(ng)}${hex(nb)}`;
+}
+
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h: number;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return [h, s, l];
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  if (s === 0) return [l * 255, l * 255, l * 255];
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const f = (t: number) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  return [f(h + 1 / 3) * 255, f(h) * 255, f(h - 1 / 3) * 255];
+}
+
+/**
  * โหลดปกจริง — ใช้ fetch แทน Image.src เพราะ fetch บอกได้ชัดว่าพังตรงไหน
  * และ Open Library ส่ง CORS header มาให้อยู่แล้ว (ตรวจแล้ว 7 ก.ย. 2026)
  *
