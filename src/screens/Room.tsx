@@ -78,7 +78,11 @@ export default function Room() {
                     <span className="vol-spine">
                       <span className="vol-title">{b.title}</span>
                     </span>
-                    <span className="vol-cover" />
+                    {/* แผ่นปกที่พับลึกเข้าไป — ถ้ามีปกจริงก็เห็นเสี้ยวหนึ่งของมันตรงนี้ */}
+                    <span
+                      className="vol-cover"
+                      style={b.coverUrl ? { backgroundImage: `url("${b.coverUrl}")` } : undefined}
+                    />
                   </button>
                 );
               })}
@@ -107,6 +111,7 @@ export default function Room() {
                     style={{ '--c': b.color } as React.CSSProperties}
                     onClick={() => go({ name: 'book', bookId: b.id })}
                   >
+                    {b.coverUrl && <img className="mini-cover" src={b.coverUrl} alt="" />}
                     <span className="t">{b.title}</span>
                     {b.current > 0 && <span className="m">{posLabel(b, b.current)}</span>}
                   </button>
@@ -138,6 +143,7 @@ export default function Room() {
                   }
                   onClick={() => go({ name: 'book', bookId: b.id })}
                 >
+                  {b.coverUrl && <img className="mini-cover" src={b.coverUrl} alt="" />}
                   <span className="t">{b.title}</span>
                   <span className="d">{days} วัน</span>
                 </button>

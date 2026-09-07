@@ -188,7 +188,13 @@ export default function AddBook() {
       </div>
 
       <div className="field">
-        <label>สีปก{coverUrl ? ' (ใช้กับสันหนังสือ)' : ''}</label>
+        <label>{coverUrl ? 'สีสัน' : 'สีปก'}</label>
+        {coverUrl && (
+          <div className="field-hint" style={{ marginTop: 0, marginBottom: 8 }}>
+            ปกจริงจะใช้ตอนหยิบเล่มขึ้นมาดู ส่วนสีนี้ใช้กับสันหนังสือบนชั้นและแถบในกอง
+            ซึ่งเป็นด้านที่มองไม่เห็นปก
+          </div>
+        )}
         <div className="swatches">
           {COVER_COLORS.map((c) => (
             <button
