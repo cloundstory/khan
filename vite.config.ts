@@ -20,6 +20,10 @@ export default defineConfig(({ command }) => {
           // ไม่เอา .wasm เข้า precache — มันหนัก 1 MB และคนส่วนใหญ่ไม่ได้สแกน
           // ปล่อยให้ runtimeCaching ด้านล่างเก็บให้ตอนกดสแกนครั้งแรกแทน
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
+          // three กับตัวถอดรหัสบาร์โค้ดเป็นของเสริม ไม่ใช่ของที่แอปขาดไม่ได้
+          // ออฟไลน์ยังเปิดหน้าเล่มได้ปกติ แค่เห็นปกแบนแทนเล่ม 3D
+          // จึงไม่ควรบังคับให้ทุกคนโหลดตอนติดตั้ง — ให้ runtimeCaching เก็บตอนใช้จริง
+          globIgnores: ['**/three.module-*.js', '**/ponyfill-*.js', '**/zxing_reader-*.js'],
           runtimeCaching: [
             {
               // ปกหนังสือจาก Open Library — เก็บไว้ยาว ๆ ปกไม่เปลี่ยน
@@ -39,6 +43,16 @@ export default defineConfig(({ command }) => {
               options: {
                 cacheName: 'scanner-wasm',
                 expiration: { maxEntries: 4 },
+                cacheableResponse: { statuses: [0, 200] },
+              },
+            },
+            {
+              // chunk เสริมที่กันไว้ไม่ให้ precache — เก็บตอนโหลดครั้งแรกแทน
+              urlPattern: ({ url }) => /\/assets\/(three\.module|ponyfill|zxing_reader)-/.test(url.pathname),
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'lazy-chunks',
+                expiration: { maxEntries: 12 },
                 cacheableResponse: { statuses: [0, 200] },
               },
             },

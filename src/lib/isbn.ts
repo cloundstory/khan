@@ -65,7 +65,8 @@ export async function lookupIsbn(isbn: string, signal?: AbortSignal): Promise<Bo
     title: raw.title,
     author: raw.authors?.[0]?.name,
     pages: typeof raw.number_of_pages === 'number' ? raw.number_of_pages : undefined,
-    coverUrl: raw.cover?.medium ?? raw.cover?.large ?? raw.cover?.small,
+    // เอาขนาดใหญ่ก่อน เพราะปกถูกเอาไปแปะเป็น texture ของเล่ม 3D ขนาด medium จะเบลอ
+    coverUrl: raw.cover?.large ?? raw.cover?.medium ?? raw.cover?.small,
   };
 }
 

@@ -5,6 +5,7 @@ import { statsFor, daysInPile, readingMs } from '../lib/stats';
 import { posLabel, dateLabel, durationLabel } from '../lib/format';
 import { toDesk, toPile, reread } from '../db/books';
 import { addCard } from '../db/cards';
+import Book3D from '../components/Book3D';
 import type { Book, Session } from '../db/schema';
 
 export default function BookSheet({ bookId }: { bookId: string }) {
@@ -55,11 +56,11 @@ export default function BookSheet({ bookId }: { bookId: string }) {
     <div className="page">
       <button className="back" onClick={() => go({ name: 'room' })}>← กลับห้อง</button>
 
-      <div className="topline" style={{ marginBottom: 18 }}>
-        <div>
-          <div className="wordmark" style={{ fontSize: 19 }}>{book.title}</div>
-          <div className="spine-meta">{book.author ?? 'ไม่ระบุผู้เขียน'}</div>
-        </div>
+      <Book3D book={book} />
+
+      <div className="book-head">
+        <div className="wordmark" style={{ fontSize: 19 }}>{book.title}</div>
+        <div className="spine-meta">{book.author ?? 'ไม่ระบุผู้เขียน'}</div>
       </div>
 
       {book.status === 'pile' && <PileView book={book} onPickUp={pickUp} />}
