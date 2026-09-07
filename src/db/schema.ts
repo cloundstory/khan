@@ -31,6 +31,8 @@ export interface Session {
   startedAt: number;
   endedAt: number;
   plannedMinutes?: number;
+  /** เวลาที่กดพัก (ms, integer) — ไม่นับเป็นเวลาอ่าน; ไม่มี = ไม่เคยพัก */
+  pausedMs?: number;
   startPos: number;
   endPos: number;
   /** กระดาษสรุป — หัวใจของ context recovery */

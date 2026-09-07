@@ -14,6 +14,7 @@ export async function saveSession(input: {
   startedAt: number;
   endedAt: number;
   plannedMinutes?: number;
+  pausedMs?: number;
   startPos: number;
   endPos: number;
   note?: string;
@@ -24,6 +25,8 @@ export async function saveSession(input: {
     startedAt: input.startedAt,
     endedAt: input.endedAt,
     plannedMinutes: input.plannedMinutes,
+    // ไม่เคยพัก → ไม่ต้องเก็บ field เปล่า ๆ ไว้ในทุกเรคอร์ด
+    pausedMs: input.pausedMs && input.pausedMs > 0 ? Math.round(input.pausedMs) : undefined,
     startPos: Math.round(input.startPos),
     endPos: Math.round(input.endPos),
     note: input.note?.trim() || undefined,

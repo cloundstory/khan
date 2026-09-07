@@ -10,12 +10,32 @@ export interface BookStats {
   lastReadAt?: number;
 }
 
+/** สถานะการพักของ session ที่กำลังเดินอยู่ */
+export interface PauseState {
+  pausedMs?: number;
+  pausedAt?: number;
+}
+
+/** เวลาพักรวมจนถึง `now` — นับช่วงที่ยังพักค้างอยู่ด้วย */
+export function pausedTotal(p: PauseState, now: number): number {
+  const open = p.pausedAt ? Math.max(0, now - p.pausedAt) : 0;
+  return (p.pausedMs ?? 0) + open;
+}
+
+/**
+ * เวลาอ่านจริงของ session ที่บันทึกแล้ว — หักเวลาพักออก
+ * session เก่าที่ไม่มี pausedMs จะได้ค่าเท่าเดิมทุกประการ
+ */
+export function readingMs(s: Session): number {
+  return Math.max(0, s.endedAt - s.startedAt - (s.pausedMs ?? 0));
+}
+
 export function statsFor(sessions: Session[]): BookStats {
   if (sessions.length === 0) {
     return { sessionCount: 0, totalMinutes: 0, progressed: 0, perHour: null };
   }
   const sorted = [...sessions].sort((a, b) => a.endedAt - b.endedAt);
-  const totalMs = sorted.reduce((sum, s) => sum + Math.max(0, s.endedAt - s.startedAt), 0);
+  const totalMs = sorted.reduce((sum, s) => sum + readingMs(s), 0);
   const totalMinutes = Math.round(totalMs / 60_000);
   const progressed = sorted.reduce((sum, s) => sum + Math.max(0, s.endPos - s.startPos), 0);
   return {

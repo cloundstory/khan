@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../store/useApp';
 import { saveSession } from '../db/sessions';
 import { posLabel, durationLabel } from '../lib/format';
+import { pausedTotal } from '../lib/stats';
 
 /** กระดาษสรุป — เด้งขึ้นทุกครั้ง แต่ปล่อยว่างได้ */
 export default function Capture({ bookId }: { bookId: string }) {
@@ -10,6 +11,8 @@ export default function Capture({ bookId }: { bookId: string }) {
   const [pos, setPos] = useState(String(book?.current ?? 0));
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  // ตรึงไว้ตอนวางหนังสือลง — เวลาที่ใช้เขียนกระดาษสรุปไม่ใช่เวลาอ่าน
+  const [endedAt] = useState(() => Date.now());
 
   if (!book || !active) {
     return (
@@ -20,8 +23,8 @@ export default function Capture({ bookId }: { bookId: string }) {
     );
   }
 
-  const endedAt = Date.now();
-  const elapsed = endedAt - active.startedAt;
+  const pausedMs = pausedTotal(active, endedAt);
+  const elapsed = Math.max(0, endedAt - active.startedAt - pausedMs);
 
   async function save() {
     setSaving(true);
@@ -32,6 +35,7 @@ export default function Capture({ bookId }: { bookId: string }) {
       startedAt: active!.startedAt,
       endedAt,
       plannedMinutes: active!.plannedMinutes,
+      pausedMs,
       startPos: active!.startPos,
       endPos,
       note,
@@ -49,7 +53,9 @@ export default function Capture({ bookId }: { bookId: string }) {
       </div>
 
       <p className="zone-empty" style={{ paddingLeft: 0, paddingTop: 0 }}>
-        อ่านไป {durationLabel(elapsed)} · เริ่มจาก {posLabel(book, active.startPos)}
+        อ่านไป {durationLabel(elapsed)}
+        {pausedMs >= 60_000 && ` · พัก ${durationLabel(pausedMs)}`}
+        {' · '}เริ่มจาก {posLabel(book, active.startPos)}
       </p>
 
       <div className="field">

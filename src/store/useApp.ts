@@ -18,6 +18,10 @@ export interface ActiveSession {
   startedAt: number;
   startPos: number;
   plannedMinutes?: number;
+  /** เวลาพักสะสม (ms) */
+  pausedMs?: number;
+  /** เวลาที่เริ่มพักรอบปัจจุบัน — ไม่มี = กำลังอ่านอยู่ */
+  pausedAt?: number;
 }
 
 const ACTIVE_KEY = 'khan:active-session';
@@ -51,6 +55,8 @@ interface AppState {
   refresh: () => Promise<void>;
   go: (screen: Screen) => void;
   startSession: (a: ActiveSession) => void;
+  pauseSession: () => void;
+  resumeSession: () => void;
   clearSession: () => void;
   say: (msg: string) => void;
 }
@@ -73,9 +79,31 @@ export const useApp = create<AppState>((set) => ({
   go: (screen) => set({ screen }),
 
   startSession: (a) => {
-    saveActive(a);
-    set({ active: a, screen: { name: 'session', bookId: a.bookId } });
+    const fresh: ActiveSession = { ...a, pausedMs: 0, pausedAt: undefined };
+    saveActive(fresh);
+    set({ active: fresh, screen: { name: 'session', bookId: a.bookId } });
   },
+
+  /** พักสายตา/ลุกไปเข้าห้องน้ำ — เวลาอ่านหยุดเดิน แต่ session ยังอยู่ */
+  pauseSession: () =>
+    set((s) => {
+      if (!s.active || s.active.pausedAt) return {};
+      const next: ActiveSession = { ...s.active, pausedAt: Date.now() };
+      saveActive(next);
+      return { active: next };
+    }),
+
+  resumeSession: () =>
+    set((s) => {
+      if (!s.active?.pausedAt) return {};
+      const next: ActiveSession = {
+        ...s.active,
+        pausedMs: (s.active.pausedMs ?? 0) + Math.max(0, Date.now() - s.active.pausedAt),
+        pausedAt: undefined,
+      };
+      saveActive(next);
+      return { active: next };
+    }),
 
   clearSession: () => {
     saveActive(null);
