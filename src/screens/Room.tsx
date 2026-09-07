@@ -50,6 +50,44 @@ export default function Room() {
         </button>
       </div>
 
+      {/* เรียงตามความสูงจริงของห้อง: ชั้นบนผนัง → โต๊ะ → กองบนพื้น
+          และกองต้องอยู่ล่างสุดเพราะเป็นโซนเดียวที่โตไม่มีเพดาน */}
+      <Zone name="ชั้น" count={shelf.length}>
+        {shelf.length === 0 ? (
+          <p className="zone-empty">ยังไม่มีเล่มไหนขึ้นชั้น</p>
+        ) : (
+          <>
+            <div className="shelf">
+              {shelf.map((b) => {
+                const d = spineSize(b);
+                return (
+                  <button
+                    key={b.id}
+                    className="vol"
+                    style={
+                      {
+                        '--c': b.color,
+                        '--sw': `${d.sw}px`,
+                        '--h': `${d.h}px`,
+                        '--cw': '30px',
+                      } as React.CSSProperties
+                    }
+                    aria-label={`${b.title}${b.author ? ` โดย ${b.author}` : ''}`}
+                    onClick={() => go({ name: 'book', bookId: b.id })}
+                  >
+                    <span className="vol-spine">
+                      <span className="vol-title">{b.title}</span>
+                    </span>
+                    <span className="vol-cover" />
+                  </button>
+                );
+              })}
+            </div>
+            <div className="plank" />
+          </>
+        )}
+      </Zone>
+
       <Zone name="โต๊ะ" count={desk.length} note={desk.length > 3 ? 'โต๊ะเริ่มแน่น' : undefined}>
         {!open ? (
           <p className="zone-empty">ยังไม่มีเล่มไหนอยู่บนโต๊ะ</p>
@@ -107,40 +145,6 @@ export default function Room() {
             })}
           </div>
         )}
-      </Zone>
-
-      <Zone name="ชั้น" count={shelf.length}>
-        {shelf.length === 0 ? (
-          <p className="zone-empty">ยังไม่มีเล่มไหนขึ้นชั้น</p>
-        ) : (
-          <div className="shelf">
-            {shelf.map((b) => {
-              const d = spineSize(b);
-              return (
-                <button
-                  key={b.id}
-                  className="vol"
-                  style={
-                    {
-                      '--c': b.color,
-                      '--sw': `${d.sw}px`,
-                      '--h': `${d.h}px`,
-                      '--cw': '30px',
-                    } as React.CSSProperties
-                  }
-                  aria-label={`${b.title}${b.author ? ` โดย ${b.author}` : ''}`}
-                  onClick={() => go({ name: 'book', bookId: b.id })}
-                >
-                  <span className="vol-spine">
-                    <span className="vol-title">{b.title}</span>
-                  </span>
-                  <span className="vol-cover" />
-                </button>
-              );
-            })}
-          </div>
-        )}
-        <div className="plank" />
       </Zone>
 
       <button className="fab" onClick={() => go({ name: 'add' })} aria-label="เพิ่มหนังสือ">
