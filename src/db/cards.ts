@@ -40,8 +40,8 @@ export async function moveCard(id: string, x: number, y: number): Promise<void> 
 
 export async function deleteCard(id: string): Promise<void> {
   await db.transaction('rw', db.cards, db.threads, db.cardPhotos, async () => {
-    await db.threads.where('fromCardId').equals(id).delete();
-    await db.threads.where('toCardId').equals(id).delete();
+    // fromCardId/toCardId ไม่ได้ index — ใช้ filter สแกน (เส้นต่อเล่มมีไม่กี่เส้น)
+    await db.threads.filter((t) => t.fromCardId === id || t.toCardId === id).delete();
     await db.cardPhotos.delete(id);
     await db.cards.delete(id);
   });
