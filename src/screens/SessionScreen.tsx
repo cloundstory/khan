@@ -40,9 +40,9 @@ export default function SessionScreen({ bookId }: { bookId: string }) {
   const fullW = () => window.innerWidth;
   const splitW = () => Math.round(window.innerWidth * SPLIT);
 
-  // เต็มจอ = พัก · หุบออกจากเต็ม = เดินต่อ (ถ้าตอนเปิดเต็มกำลังอ่านอยู่)
+  // บอร์ดกินจอ ≥85% (timer แทบไม่เหลือ) = พัก · หุบกลับ = เดินต่อ (ถ้าตอนเข้าเต็มกำลังอ่าน)
   function applyPause(w: number) {
-    const nowFull = w >= fullW() - 2;
+    const nowFull = w >= fullW() * 0.85;
     if (nowFull && !isFull.current) {
       isFull.current = true;
       wasReading.current = !Boolean(active?.pausedAt);
@@ -51,14 +51,6 @@ export default function SessionScreen({ bookId }: { bookId: string }) {
       isFull.current = false;
       if (wasReading.current) resumeSession();
     }
-  }
-
-  function snap(w: number) {
-    const cands = [0, splitW(), fullW()];
-    let best = cands[0];
-    for (const c of cands) if (Math.abs(w - c) < Math.abs(w - best)) best = c;
-    setPanelW(best);
-    applyPause(best);
   }
 
   function hDown(e: React.PointerEvent) {
@@ -77,8 +69,15 @@ export default function SessionScreen({ bookId }: { bookId: string }) {
     const d = drag.current;
     drag.current = null;
     if (!d) return;
-    if (d.moved < TAP_SLOP) snap(panelW > 0 ? 0 : splitW()); // แตะ = สลับ ปิด/แบ่งครึ่ง
-    else snap(panelW);
+    if (d.moved < TAP_SLOP) {
+      // แตะ = สลับ ปิด/เปิด (เปิดไปที่ค่าเริ่มต้นครึ่งจอ)
+      const w = panelW > 0 ? 0 : splitW();
+      setPanelW(w);
+      applyPause(w);
+    } else {
+      // ลาก = จัดวางอิสระ ปล่อยไว้ตรงไหนอยู่ตรงนั้น
+      applyPause(panelW);
+    }
   }
 
   if (!active || !book) {
