@@ -561,9 +561,10 @@ input, textarea, select { font: inherit; color: inherit; }
   background: radial-gradient(circle at 35% 30%, #e6c583, var(--brass) 62%, #6f5015);
   box-shadow: 0 2px 3px rgba(0, 0, 0, 0.28);
 }
+/* โชว์รูปเต็มใบตามสัดส่วนจริง — ไม่ครอป การ์ดสูงตามรูป (เหมือนโพลารอยด์ที่แปะจริง) */
 .bcard-photo {
-  display: block; width: 100%; max-height: 150px;
-  object-fit: cover; border-radius: 3px; margin-bottom: 9px;
+  display: block; width: 100%; height: auto;
+  border-radius: 3px; margin-bottom: 9px;
   -webkit-user-drag: none; user-select: none;
 }
 .bcard-text {
@@ -615,9 +616,10 @@ input, textarea, select { font: inherit; color: inherit; }
 .sheet-actions .grow { flex: 1; }
 
 .sheet-photo { position: relative; margin-bottom: 12px; }
+/* พรีวิวในแผ่นแก้ — เห็นรูปเต็มใบ ไม่ครอป สูงได้ถึง 60% จอ ถ้าสูงกว่านั้นย่อพอดีกรอบ */
 .sheet-photo img {
-  width: 100%; max-height: 220px; object-fit: cover;
-  border-radius: 9px; display: block;
+  width: 100%; height: auto; max-height: 60vh; object-fit: contain;
+  border-radius: 9px; display: block; background: var(--paper-low);
 }
 .sheet-photo-rm {
   position: absolute; top: 8px; right: 8px;
