@@ -153,12 +153,14 @@ export default function Board({ bookId }: { bookId: string }) {
     return surfaceRef.current!.getBoundingClientRect();
   }
 
-  // แปลงพิกัดนิ้ว/เมาส์ → พิกัดในโลกของบอร์ด (หักพื้นเลื่อนและซูมออก)
+  // แปลงพิกัดนิ้ว/เมาส์ → พิกัดในโลกของบอร์ด
+  // world origin อยู่ที่ left:50%/top:50% ของพื้นบอร์ด แล้วค่อย translate(pan) scale(zoom)
+  // ต้องหักครึ่งความกว้าง/สูงด้วย ไม่งั้นปลายด้ายเลื่อนไปครึ่งจอ
   function toWorld(clientX: number, clientY: number) {
     const r = surfRect();
     return {
-      x: (clientX - r.left - view.current.panX) / view.current.zoom,
-      y: (clientY - r.top - view.current.panY) / view.current.zoom,
+      x: (clientX - r.left - r.width / 2 - view.current.panX) / view.current.zoom,
+      y: (clientY - r.top - r.height / 2 - view.current.panY) / view.current.zoom,
     };
   }
 
