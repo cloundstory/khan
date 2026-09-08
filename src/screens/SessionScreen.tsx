@@ -96,29 +96,32 @@ export default function SessionScreen({ bookId }: { bookId: string }) {
 
   return (
     <div className={paused ? 'reading is-paused' : 'reading'}>
-      <div className="reading-book">{book.title}</div>
+      {/* content จัดกลางเฉพาะพื้นที่ซ้ายที่เหลือ (หดตามความกว้างพาเนล) จะได้ไม่โดนบอร์ดทับ */}
+      <div className="reading-center" style={{ right: panelW }}>
+        <div className="reading-book">{book.title}</div>
 
-      <button
-        className="reading-clock"
-        onClick={() => (paused ? resumeSession() : pauseSession())}
-        aria-label={paused ? 'อ่านต่อ' : 'พัก'}
-      >
-        {clockLabel(elapsed)}
-      </button>
+        <button
+          className="reading-clock"
+          onClick={() => (paused ? resumeSession() : pauseSession())}
+          aria-label={paused ? 'อ่านต่อ' : 'พัก'}
+        >
+          {clockLabel(elapsed)}
+        </button>
 
-      {target != null && !paused && (
-        <div className="reading-target">
-          {reached ? 'ถึงเวลาที่ตั้งไว้แล้ว — อ่านต่อได้ตามสบาย' : `ตั้งไว้ ${active.plannedMinutes} นาที`}
+        {target != null && !paused && (
+          <div className="reading-target">
+            {reached ? 'ถึงเวลาที่ตั้งไว้แล้ว — อ่านต่อได้ตามสบาย' : `ตั้งไว้ ${active.plannedMinutes} นาที`}
+          </div>
+        )}
+
+        <div className="reading-hint">
+          {paused ? 'พักอยู่ — แตะนาฬิกาเพื่ออ่านต่อ' : 'แตะนาฬิกาเพื่อพัก'}
         </div>
-      )}
 
-      <div className="reading-hint">
-        {paused ? 'พักอยู่ — แตะนาฬิกาเพื่ออ่านต่อ' : 'แตะนาฬิกาเพื่อพัก'}
+        <button className="reading-stop" onClick={() => go({ name: 'capture', bookId })}>
+          หยุดอ่าน
+        </button>
       </div>
-
-      <button className="reading-stop" onClick={() => go({ name: 'capture', bookId })}>
-        หยุดอ่าน
-      </button>
 
       {/* หูจับลูกศร — ลากซ้ายเพื่อดึงบอร์ดเข้ามา แตะเพื่อสลับ ปิด/แบ่งครึ่ง
           clamp ไม่ให้เลื่อนหลุดจอตอนเต็ม จะได้ยังจับลากกลับได้ */}

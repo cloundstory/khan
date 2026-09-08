@@ -285,6 +285,8 @@ input, textarea, select { font: inherit; color: inherit; }
 
 /* ---------- หน้าจออ่าน — ข้อยกเว้นหน้าเดียวที่ยังมืด ---------- */
 .reading { position: fixed; inset: 0; background: var(--room-deep); color: var(--room-dim); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px; padding: 28px; }
+/* กล่อง content ของ timer — จัดกลางในพื้นที่ซ้ายที่เหลือ (right ตั้งตามความกว้างพาเนล) */
+.reading-center { position: absolute; left: 0; top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px; padding: 28px; }
 .reading-book { font-family: var(--serif); font-size: 16px; color: var(--room-dim); text-align: center; }
 .reading-clock { font-family: var(--serif); font-size: 60px; font-weight: 400; color: var(--room-paper); font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
 .reading-target { font-size: 12.5px; color: var(--room-dim); }
@@ -309,8 +311,9 @@ input, textarea, select { font: inherit; color: inherit; }
   overflow: hidden;
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.4);
 }
-/* บอร์ดในโหมดพาเนล — เต็มกล่องพาเนล ไม่ fixed ไม่มี appear animation */
-.board-in-panel {
+/* บอร์ดในโหมดพาเนล — เต็มกล่องพาเนล ไม่ fixed ไม่มี appear animation
+   ใช้ 2 คลาสให้ specificity สูงกว่า .board-page (ที่ตั้ง position:fixed) ไม่งั้นบอร์ดหลุดกางเต็มจอทับ timer */
+.board-page.board-in-panel {
   position: absolute; inset: 0; z-index: auto; animation: none;
 }
 
