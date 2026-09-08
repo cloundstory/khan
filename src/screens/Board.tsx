@@ -59,7 +59,7 @@ function wirePath(ax: number, ay: number, bx: number, by: number): string {
   const mx = (ax + bx) / 2;
   const my = (ay + by) / 2;
   const dist = Math.hypot(bx - ax, by - ay);
-  const cy = my + Math.max(6, dist * 0.16);
+  const cy = my + Math.max(4, dist * 0.05); // หย่อนบาง ๆ ให้เข้าชุดกับเชือกที่ผูกแล้ว (ตึง)
   return `M${ax},${ay} Q${mx},${cy} ${bx},${by}`;
 }
 
@@ -146,8 +146,15 @@ export default function Board({ bookId }: { bookId: string }) {
     load();
   }, [load]);
 
-  const cardMap: Record<string, Card> = {};
-  for (const c of cards) cardMap[c.id] = c;
+  // เคารพ prefers-reduced-motion — ปิดการแกว่งของเชือก (เส้นยังตามการ์ดถูกต้องผ่าน layout effect)
+  const reduceMotion = useRef(false);
+  useEffect(() => {
+    try {
+      reduceMotion.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      /* เบราว์เซอร์เก่าไม่มี matchMedia — ถือว่าไม่ลดการเคลื่อนไหว */
+    }
+  }, []);
 
   function applyView() {
     const w = worldRef.current;
@@ -302,6 +309,7 @@ export default function Board({ bookId }: { bookId: string }) {
     rafRef.current = pointers.current.size > 0 || energy > ENERGY_EPS ? requestAnimationFrame(step) : 0;
   };
   function startLoop() {
+    if (reduceMotion.current) return; // ไม่แกว่ง — layout effect วาดตำแหน่งถูกต้องให้อยู่แล้ว
     if (!rafRef.current) rafRef.current = requestAnimationFrame(step);
   }
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
