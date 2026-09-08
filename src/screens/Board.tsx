@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useApp } from '../store/useApp';
 import {
   cardsOf,
@@ -20,6 +20,18 @@ const MIN_Z = 0.45;
 const MAX_Z = 2.4;
 const TAP_SLOP = 5; // px รวม — ต่ำกว่านี้ถือว่าแตะ ไม่ใช่ลาก
 
+// พารามิเตอร์เชือก verlet
+const ROPE_N = 16; // จำนวนปม
+const SLACK = 1.12; // เชือกยาวกว่าระยะตรง 12% → หย่อน
+const GRAVITY = 0.55;
+const DAMP = 0.98;
+const ITER = 6; // รอบ constraint ต่อเฟรม
+const ENERGY_EPS = 0.5; // ต่ำกว่านี้ = นิ่งแล้ว หยุด loop
+
+type Anchor = { x: number; y: number };
+type RopePt = { x: number; y: number; px: number; py: number };
+type Rope = { pts: RopePt[]; key: string };
+
 type Gesture =
   | { type: 'pan'; sx: number; sy: number; px: number; py: number }
   | {
@@ -37,13 +49,26 @@ type Gesture =
   | { type: 'wire'; fromId: string; fromX: number; fromY: number }
   | { type: 'pinch'; startDist: number; startZoom: number; fx: number; fy: number };
 
-/** เส้นด้ายหย่อนเล็กน้อย — bezier จุดควบคุมหย่อนลงตามระยะห่าง ไม่จำลอง Verlet */
+/** เส้นด้ายชั่วคราวตอนกำลังลาก (ยังไม่ผูก) — bezier หย่อนธรรมดา ไม่ต้อง physics */
 function wirePath(ax: number, ay: number, bx: number, by: number): string {
   const mx = (ax + bx) / 2;
   const my = (ay + by) / 2;
   const dist = Math.hypot(bx - ax, by - ay);
   const cy = my + Math.max(6, dist * 0.16);
   return `M${ax},${ay} Q${mx},${cy} ${bx},${by}`;
+}
+
+/** เส้นเรียบผ่านปมทั้งหมดของเชือก (quadratic smoothing) */
+function ropeD(pts: RopePt[]): string {
+  const n = pts.length;
+  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+  for (let i = 1; i < n - 1; i++) {
+    const xc = (pts[i].x + pts[i + 1].x) / 2;
+    const yc = (pts[i].y + pts[i + 1].y) / 2;
+    d += ` Q${pts[i].x.toFixed(1)},${pts[i].y.toFixed(1)} ${xc.toFixed(1)},${yc.toFixed(1)}`;
+  }
+  d += ` L${pts[n - 1].x.toFixed(1)},${pts[n - 1].y.toFixed(1)}`;
+  return d;
 }
 
 function BoardCard({ card, unit }: { card: Card; unit?: string }) {
@@ -86,6 +111,13 @@ export default function Board({ bookId }: { bookId: string }) {
   const gesture = useRef<Gesture | null>(null);
   const pointers = useRef<Map<number, { x: number; y: number }>>(new Map());
 
+  // ระบบเชือก physics
+  const ropes = useRef<Map<string, Rope>>(new Map());
+  const lineEls = useRef<Map<string, SVGPathElement>>(new Map());
+  const hitEls = useRef<Map<string, SVGPathElement>>(new Map());
+  const threadsRef = useRef<Thread[]>([]);
+  const rafRef = useRef(0);
+
   const load = useCallback(async () => {
     const [cs, ts] = await Promise.all([cardsOf(bookId), threadsOf(bookId)]);
     setCards(cs);
@@ -107,24 +139,154 @@ export default function Board({ bookId }: { bookId: string }) {
   }
   useEffect(applyView, [cards]);
 
-  // โหลดรูปของการ์ดที่กำลังแก้เข้าแผ่นล่าง
-  useEffect(() => {
-    if (!editing || !editing.hasPhoto) {
-      setEditPhoto(null);
-      return;
+  // ---------- เชือก verlet ----------
+  // จุดผูก = หมุดของการ์ด (ขอบบนกลาง) อ่านตำแหน่งสด ๆ จาก DOM (--x/--y + ความสูงจริง)
+  // offsetHeight ไม่ถูก transform scale กระทบ จึงได้ความสูง layout จริงเสมอ
+  function cardAnchor(id: string): Anchor | null {
+    const w = worldRef.current;
+    if (!w) return null;
+    const el = w.querySelector(`[data-card="${CSS.escape(id)}"]`) as HTMLElement | null;
+    if (!el) return null;
+    const x = parseFloat(el.style.getPropertyValue('--x')) || 0;
+    const y = parseFloat(el.style.getPropertyValue('--y')) || 0;
+    return { x, y: y - el.offsetHeight / 2 - 6 };
+  }
+
+  function stepRope(rope: Rope, a: Anchor, b: Anchor): number {
+    const p = rope.pts;
+    const n = p.length;
+    const dist = Math.hypot(b.x - a.x, b.y - a.y);
+    const seg = (dist * SLACK) / (n - 1);
+    let energy = 0;
+    for (let i = 1; i < n - 1; i++) {
+      const nd = p[i];
+      const vx = (nd.x - nd.px) * DAMP;
+      const vy = (nd.y - nd.py) * DAMP;
+      nd.px = nd.x;
+      nd.py = nd.y;
+      nd.x += vx;
+      nd.y += vy + GRAVITY;
+      energy += Math.abs(vx) + Math.abs(vy);
     }
-    let alive = true;
-    let url: string | null = null;
-    getCardPhoto(editing.id).then((row) => {
-      if (!alive || !row) return;
-      url = URL.createObjectURL(row.blob);
-      setEditPhoto(url);
-    });
-    return () => {
-      alive = false;
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [editing]);
+    p[0].x = a.x;
+    p[0].y = a.y;
+    p[n - 1].x = b.x;
+    p[n - 1].y = b.y;
+    for (let k = 0; k < ITER; k++) {
+      for (let i = 0; i < n - 1; i++) {
+        const A = p[i];
+        const B = p[i + 1];
+        let dx = B.x - A.x;
+        let dy = B.y - A.y;
+        const d = Math.hypot(dx, dy) || 0.0001;
+        const diff = ((d - seg) / d) * 0.5;
+        const ox = dx * diff;
+        const oy = dy * diff;
+        if (i !== 0) {
+          A.x += ox;
+          A.y += oy;
+        }
+        if (i + 1 !== n - 1) {
+          B.x -= ox;
+          B.y -= oy;
+        }
+      }
+      p[0].x = a.x;
+      p[0].y = a.y;
+      p[n - 1].x = b.x;
+      p[n - 1].y = b.y;
+    }
+    return energy;
+  }
+
+  function buildRope(a: Anchor, b: Anchor): Rope {
+    const pts: RopePt[] = [];
+    for (let i = 0; i < ROPE_N; i++) {
+      const t = i / (ROPE_N - 1);
+      const x = a.x + (b.x - a.x) * t;
+      const y = a.y + (b.y - a.y) * t;
+      pts.push({ x, y, px: x, py: y });
+    }
+    const rope: Rope = { pts, key: '' };
+    for (let s = 0; s < 80; s++) stepRope(rope, a, b); // presettle ให้หย่อนก่อนวาดเฟรมแรก
+    return rope;
+  }
+
+  // ผูกเฉพาะ path element เข้ากับ thread id — ไม่ยุ่งกับ rope
+  // (ref ของลูกยิงก่อน worldRef ของพ่อ จึงห้ามคำนวณ anchor ตรงนี้ — ให้ loop สร้าง rope เอง)
+  function attach(t: Thread, which: 'line' | 'hit', el: SVGPathElement | null) {
+    const map = which === 'line' ? lineEls.current : hitEls.current;
+    if (el) map.set(t.id, el);
+    else map.delete(t.id);
+  }
+
+  // threads เปลี่ยน → ทิ้งของที่ไม่มีแล้ว
+  useEffect(() => {
+    threadsRef.current = threads;
+    const ids = new Set(threads.map((t) => t.id));
+    for (const id of [...ropes.current.keys()])
+      if (!ids.has(id)) {
+        ropes.current.delete(id);
+        lineEls.current.delete(id);
+        hitEls.current.delete(id);
+      }
+  }, [threads]);
+
+  // วาดเชือกครั้งเดียวแบบ synchronous ทุกครั้งที่ card/thread เปลี่ยน
+  // เพื่อให้เชือกถูกต้องตั้งแต่เฟรมแรก แม้ RAF จะถูกเบราว์เซอร์พักตอนแท็บไม่แสดง
+  // (RAF ด้านล่างคือส่วน physics เคลื่อนไหว+ตามการ์ดสด เมื่อหน้าแสดงผลอยู่)
+  useLayoutEffect(() => {
+    for (const t of threads) {
+      const a = cardAnchor(t.fromCardId);
+      const b = cardAnchor(t.toCardId);
+      if (!a || !b) continue;
+      let rope = ropes.current.get(t.id);
+      if (!rope) {
+        rope = buildRope(a, b); // presettle 80 รอบในตัว
+        ropes.current.set(t.id, rope);
+      } else {
+        // การ์ดขยับ → ผูกปลายที่หมุดใหม่แล้ว settle ให้เชือกตามถูกต้อง แม้ RAF จะถูกพัก
+        for (let s = 0; s < 24; s++) stepRope(rope, a, b);
+      }
+      rope.key = `${a.x},${a.y},${b.x},${b.y}`;
+      const d = ropeD(rope.pts);
+      lineEls.current.get(t.id)?.setAttribute('d', d);
+      hitEls.current.get(t.id)?.setAttribute('d', d);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threads, cards]);
+
+  // loop physics — เดินเฉพาะตอนมีการโต้ตอบหรือเชือกยังแกว่ง แล้วหยุดเองเมื่อนิ่ง
+  // (ตอนนิ่งใช้ผลจาก useLayoutEffect ที่วาดไว้แล้ว — ไม่กิน CPU/แบตเปล่า)
+  const step = () => {
+    let energy = 0;
+    for (const t of threadsRef.current) {
+      const a = cardAnchor(t.fromCardId);
+      const b = cardAnchor(t.toCardId);
+      if (!a || !b) continue;
+      let rope = ropes.current.get(t.id);
+      if (!rope) {
+        rope = buildRope(a, b);
+        ropes.current.set(t.id, rope);
+      }
+      const key = `${a.x},${a.y},${b.x},${b.y}`;
+      const moved = rope.key !== key;
+      rope.key = key;
+      const e = stepRope(rope, a, b);
+      energy += e;
+      if (moved || e > ENERGY_EPS) {
+        const d = ropeD(rope.pts);
+        lineEls.current.get(t.id)?.setAttribute('d', d);
+        hitEls.current.get(t.id)?.setAttribute('d', d);
+      }
+    }
+    // เดินต่อระหว่างยังแตะอยู่ (ลากการ์ด) หรือเชือกยังมีแรงแกว่ง
+    rafRef.current = pointers.current.size > 0 || energy > ENERGY_EPS ? requestAnimationFrame(step) : 0;
+  };
+  function startLoop() {
+    if (!rafRef.current) rafRef.current = requestAnimationFrame(step);
+  }
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
   // wheel ต้อง preventDefault เอง (React ผูก wheel แบบ passive)
   useEffect(() => {
@@ -149,13 +311,31 @@ export default function Board({ bookId }: { bookId: string }) {
     return () => surf.removeEventListener('wheel', onWheel);
   }, []);
 
+  // โหลดรูปของการ์ดที่กำลังแก้เข้าแผ่นล่าง
+  useEffect(() => {
+    if (!editing || !editing.hasPhoto) {
+      setEditPhoto(null);
+      return;
+    }
+    let alive = true;
+    let url: string | null = null;
+    getCardPhoto(editing.id).then((row) => {
+      if (!alive || !row) return;
+      url = URL.createObjectURL(row.blob);
+      setEditPhoto(url);
+    });
+    return () => {
+      alive = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [editing]);
+
   function surfRect() {
     return surfaceRef.current!.getBoundingClientRect();
   }
 
   // แปลงพิกัดนิ้ว/เมาส์ → พิกัดในโลกของบอร์ด
   // world origin อยู่ที่ left:50%/top:50% ของพื้นบอร์ด แล้วค่อย translate(pan) scale(zoom)
-  // ต้องหักครึ่งความกว้าง/สูงด้วย ไม่งั้นปลายด้ายเลื่อนไปครึ่งจอ
   function toWorld(clientX: number, clientY: number) {
     const r = surfRect();
     return {
@@ -185,6 +365,7 @@ export default function Board({ bookId }: { bookId: string }) {
     const surf = surfaceRef.current!;
     surf.setPointerCapture(e.pointerId);
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    startLoop(); // ปลุก physics ระหว่างโต้ตอบ เชือกจะแกว่งตามการ์ดสด
 
     if (pointers.current.size === 2) {
       beginPinch();
@@ -197,10 +378,11 @@ export default function Board({ bookId }: { bookId: string }) {
       const c = cards.find((k) => k.id === id);
       if (!c) return;
       if (connect) {
-        gesture.current = { type: 'wire', fromId: id, fromX: c.x, fromY: c.y };
+        const a = cardAnchor(id) ?? { x: c.x, y: c.y };
+        gesture.current = { type: 'wire', fromId: id, fromX: a.x, fromY: a.y };
         const wp = wireRef.current;
         if (wp) {
-          wp.setAttribute('d', wirePath(c.x, c.y, c.x, c.y));
+          wp.setAttribute('d', wirePath(a.x, a.y, a.x, a.y));
           wp.style.display = '';
         }
       } else {
@@ -314,6 +496,7 @@ export default function Board({ bookId }: { bookId: string }) {
 
   async function removeThread(id: string) {
     await deleteThread(id);
+    ropes.current.delete(id);
     setThreads(await threadsOf(bookId));
     say('ปลดด้ายแล้ว');
   }
@@ -340,6 +523,7 @@ export default function Board({ bookId }: { bookId: string }) {
       });
       setEditing({ ...editing, hasPhoto: true });
       setCards((cs) => cs.map((k) => (k.id === editing.id ? { ...k, hasPhoto: true } : k)));
+
     } catch {
       say('ใส่รูปไม่สำเร็จ');
     }
@@ -418,31 +602,26 @@ export default function Board({ bookId }: { bookId: string }) {
         onPointerCancel={onPointerUp}
       >
         <div className="board-world" ref={worldRef}>
-          <svg className={'board-threads' + (connect ? ' connect' : '')}>
-            {threads.map((t) => {
-              const a = cardMap[t.fromCardId];
-              const b = cardMap[t.toCardId];
-              if (!a || !b) return null;
-              const d = wirePath(a.x, a.y, b.x, b.y);
-              return (
-                <g key={t.id}>
-                  <path className="thread-line" d={d} />
-                  <path
-                    className="thread-hit"
-                    d={d}
-                    data-thread={t.id}
-                    onPointerDown={connect ? (e) => e.stopPropagation() : undefined}
-                    onClick={connect ? () => removeThread(t.id) : undefined}
-                  />
-                </g>
-              );
-            })}
-            <path ref={wireRef} className="thread-line wire-live" style={{ display: 'none' }} />
-          </svg>
-
           {cards.map((c) => (
             <BoardCard key={c.id} card={c} unit={book?.unit} />
           ))}
+
+          {/* ด้ายอยู่ชั้นบนสุด — พาดทับกระดาษเหมือน evidence board จริง */}
+          <svg className={'board-threads' + (connect ? ' connect' : '')}>
+            {threads.map((t) => (
+              <g key={t.id}>
+                <path className="thread-line" ref={(el) => attach(t, 'line', el)} />
+                <path
+                  className="thread-hit"
+                  data-thread={t.id}
+                  ref={(el) => attach(t, 'hit', el)}
+                  onPointerDown={connect ? (e) => e.stopPropagation() : undefined}
+                  onClick={connect ? () => removeThread(t.id) : undefined}
+                />
+              </g>
+            ))}
+            <path ref={wireRef} className="thread-line wire-live" style={{ display: 'none' }} />
+          </svg>
         </div>
 
         {connect && <div className="board-hint">ลากจากการ์ดหนึ่งไปอีกใบเพื่อขึงด้าย · แตะเส้นเพื่อปลด</div>}

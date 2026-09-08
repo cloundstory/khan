@@ -532,12 +532,12 @@ input, textarea, select { font: inherit; color: inherit; }
   will-change: transform;
 }
 
-/* ---------- เส้นด้ายแดง ---------- */
-/* SVG อยู่ที่จุดกำเนิดโลก วาดพิกัดเป็นหน่วยโลก overflow มองเห็นเกินกล่อง
-   วางก่อนการ์ดใน DOM → การ์ดทับปลายด้าย เหมือนด้ายมุดใต้การ์ด */
+/* ---------- เส้นด้ายแดง (verlet rope) ---------- */
+/* SVG อยู่ที่จุดกำเนิดโลก วาดพิกัดหน่วยโลก overflow มองเห็นเกินกล่อง
+   วางหลังการ์ดใน DOM + z-index → ด้ายพาดทับกระดาษ เหมือน evidence board จริง */
 .board-threads {
   position: absolute; left: 0; top: 0; width: 1px; height: 1px;
-  overflow: visible; pointer-events: none;
+  overflow: visible; pointer-events: none; z-index: 5;
 }
 .thread-line {
   fill: none; stroke: #a5312a; stroke-width: 3; stroke-linecap: round;
