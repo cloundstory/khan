@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../store/useApp';
+import type { Screen } from '../store/useApp';
 import { buildRecovery, daysAwayLabel } from '../lib/recovery';
 import { statsFor, daysInPile, readingMs } from '../lib/stats';
 import { posLabel, dateLabel, durationLabel } from '../lib/format';
 import { toDesk, toPile, reread } from '../db/books';
-import { addCard } from '../db/cards';
+import { addCard, cardsOf, spiralXY } from '../db/cards';
 import Book3D from '../components/Book3D';
 import type { Book, Session } from '../db/schema';
 
@@ -62,6 +63,8 @@ export default function BookSheet({ bookId }: { bookId: string }) {
         <div className="wordmark" style={{ fontSize: 19 }}>{book.title}</div>
         <div className="spine-meta">{book.author ?? 'ไม่ระบุผู้เขียน'}</div>
       </div>
+
+      <BoardLink bookId={bookId} go={go} />
 
       {book.status === 'pile' && <PileView book={book} onPickUp={pickUp} />}
 
@@ -121,12 +124,16 @@ export default function BookSheet({ bookId }: { bookId: string }) {
               book={book}
               onPin={async () => {
                 if (!s.note) return;
+                const existing = await cardsOf(bookId);
+                const { x, y } = spiralXY(existing.length);
                 await addCard({
                   bookId,
                   type: 'idea',
                   content: s.note,
                   pos: s.endPos,
                   fromSessionId: s.id,
+                  x,
+                  y,
                 });
                 say('ปักขึ้นบอร์ดแล้ว');
               }}
@@ -235,6 +242,18 @@ function ShelfView({ book, onReadAgain }: { book: Book; onReadAgain: () => void 
         </button>
       </div>
     </>
+  );
+}
+
+function BoardLink({ bookId, go }: { bookId: string; go: (s: Screen) => void }) {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    cardsOf(bookId).then((cs) => setCount(cs.length));
+  }, [bookId]);
+  return (
+    <button className="board-link" onClick={() => go({ name: 'board', bookId })}>
+      บอร์ดเบาะแส{count ? ` · ${count}` : ''} ›
+    </button>
   );
 }
 

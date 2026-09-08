@@ -6,6 +6,7 @@ import SessionScreen from './screens/SessionScreen';
 import Capture from './screens/Capture';
 import Closing from './screens/Closing';
 import AddBook from './screens/AddBook';
+import Board from './screens/Board';
 import Settings from './screens/Settings';
 
 export default function App() {
@@ -43,6 +44,7 @@ export default function App() {
       {screen.name === 'book' && <BookSheet bookId={screen.bookId} />}
       {screen.name === 'capture' && <Capture bookId={screen.bookId} />}
       {screen.name === 'closing' && <Closing bookId={screen.bookId} />}
+      {screen.name === 'board' && <Board bookId={screen.bookId} />}
       {screen.name === 'add' && <AddBook />}
       {screen.name === 'settings' && <Settings />}
       {toast && <div className="toast">{toast}</div>}

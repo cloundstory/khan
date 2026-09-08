@@ -59,3 +59,19 @@ export async function addThread(
 export async function setTension(id: string, tension: Tension): Promise<void> {
   await db.threads.update(id, { tension });
 }
+
+/** แก้ข้อความบนการ์ด — ไม่แตะ session note เดิม เพราะการ์ดเป็นสำเนาแล้ว */
+export async function editCard(id: string, content: string): Promise<void> {
+  await db.cards.update(id, { content: content.trim() });
+}
+
+/**
+ * วางการ์ดใหม่เป็นวงก้นหอย (phyllotaxis) รอบจุดกลางบอร์ด
+ * แทนการสุ่ม x/y เดิมที่ทำให้การ์ดทับกันมั่ว — ใบแรก (index 0) อยู่กลางพอดี
+ */
+export function spiralXY(index: number): { x: number; y: number } {
+  const golden = 2.399963; // ~137.5° เป็นเรเดียน
+  const a = index * golden;
+  const r = 82 * Math.sqrt(index);
+  return { x: Math.round(Math.cos(a) * r), y: Math.round(Math.sin(a) * r) };
+}
