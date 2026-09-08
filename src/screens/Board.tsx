@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApp } from '../store/useApp';
 import { cardsOf, moveCard, addCard, deleteCard, editCard, spiralXY } from '../db/cards';
+import { getCardPhoto, putCardPhoto, deleteCardPhoto } from '../db/cardPhotos';
+import { useCardPhoto, forgetCardPhoto } from '../lib/useCardPhoto';
+import { shrinkToCover } from '../lib/photo';
 import type { Card } from '../db/schema';
 
 const MIN_Z = 0.45;
@@ -23,13 +26,36 @@ type Gesture =
     }
   | { type: 'pinch'; startDist: number; startZoom: number; fx: number; fy: number };
 
+function BoardCard({ card, unit }: { card: Card; unit?: string }) {
+  const photo = useCardPhoto(card.id, card.hasPhoto);
+  return (
+    <div
+      className="bcard"
+      data-card={card.id}
+      style={{ ['--x' as string]: card.x + 'px', ['--y' as string]: card.y + 'px' } as React.CSSProperties}
+    >
+      <span className="bcard-pin" />
+      {photo && <img className="bcard-photo" src={photo} alt="" draggable={false} />}
+      {card.content ? (
+        <div className="bcard-text">{card.content}</div>
+      ) : (
+        !photo && <div className="bcard-text empty">แตะเพื่อเขียน</div>
+      )}
+      {card.pos != null && (
+        <span className="bcard-page">{unit === 'percent' ? `${card.pos}%` : `หน้า ${card.pos}`}</span>
+      )}
+    </div>
+  );
+}
+
 export default function Board({ bookId }: { bookId: string }) {
-  const { books, go } = useApp();
+  const { books, go, say } = useApp();
   const book = books.find((b) => b.id === bookId);
 
   const [cards, setCards] = useState<Card[]>([]);
   const [editing, setEditing] = useState<Card | null>(null);
   const [text, setText] = useState('');
+  const [editPhoto, setEditPhoto] = useState<string | null>(null);
 
   const surfaceRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
@@ -52,6 +78,25 @@ export default function Board({ bookId }: { bookId: string }) {
     w.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
   }
   useEffect(applyView, [cards]);
+
+  // โหลดรูปของการ์ดที่กำลังแก้เข้าแผ่นล่าง (object URL แยกจาก cache ของบอร์ด — revoke เองตอนปิด)
+  useEffect(() => {
+    if (!editing || !editing.hasPhoto) {
+      setEditPhoto(null);
+      return;
+    }
+    let alive = true;
+    let url: string | null = null;
+    getCardPhoto(editing.id).then((row) => {
+      if (!alive || !row) return;
+      url = URL.createObjectURL(row.blob);
+      setEditPhoto(url);
+    });
+    return () => {
+      alive = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [editing]);
 
   // wheel ต้อง preventDefault เอง (React ผูก wheel แบบ passive) — bind ตรงกับ element
   useEffect(() => {
@@ -76,14 +121,14 @@ export default function Board({ bookId }: { bookId: string }) {
     return () => surf.removeEventListener('wheel', onWheel);
   }, []);
 
-  function rectMid() {
+  function surfRect() {
     return surfaceRef.current!.getBoundingClientRect();
   }
 
   function beginPinch() {
     const pts = [...pointers.current.values()];
     const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-    const r = rectMid();
+    const r = surfRect();
     const mx = (pts[0].x + pts[1].x) / 2 - r.left;
     const my = (pts[0].y + pts[1].y) / 2 - r.top;
     const { panX, panY, zoom } = view.current;
@@ -144,7 +189,7 @@ export default function Board({ bookId }: { bookId: string }) {
       const pts = [...pointers.current.values()];
       if (pts.length < 2) return;
       const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
-      const r = rectMid();
+      const r = surfRect();
       const mx = (pts[0].x + pts[1].x) / 2 - r.left;
       const my = (pts[0].y + pts[1].y) / 2 - r.top;
       let nz = g.startZoom * (dist / g.startDist);
@@ -202,11 +247,46 @@ export default function Board({ bookId }: { bookId: string }) {
     setText('');
   }
 
+  async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !editing) return;
+    try {
+      const blob = await shrinkToCover(file, 720, 0.72);
+      await putCardPhoto(editing.id, blob);
+      forgetCardPhoto(editing.id); // ให้บอร์ดโหลดรูปใหม่แทนของเก่าใน cache
+      setEditPhoto((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(blob);
+      });
+      setEditing({ ...editing, hasPhoto: true });
+      setCards((cs) => cs.map((k) => (k.id === editing.id ? { ...k, hasPhoto: true } : k)));
+    } catch {
+      say('ใส่รูปไม่สำเร็จ');
+    }
+  }
+
+  async function removePhoto() {
+    if (!editing) return;
+    await deleteCardPhoto(editing.id);
+    forgetCardPhoto(editing.id);
+    setEditPhoto((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setEditing({ ...editing, hasPhoto: false });
+    setCards((cs) => cs.map((k) => (k.id === editing.id ? { ...k, hasPhoto: false } : k)));
+  }
+
   async function saveEdit() {
     if (!editing) return;
     const t = text.trim();
-    if (!t) await deleteCard(editing.id);
-    else await editCard(editing.id, t);
+    if (!t && !editing.hasPhoto) {
+      await deleteCard(editing.id);
+      forgetCardPhoto(editing.id);
+    } else {
+      await editCard(editing.id, t);
+    }
     setEditing(null);
     setText('');
     await load();
@@ -215,15 +295,17 @@ export default function Board({ bookId }: { bookId: string }) {
   async function removeCard() {
     if (!editing) return;
     await deleteCard(editing.id);
+    forgetCardPhoto(editing.id);
     setEditing(null);
     setText('');
     await load();
   }
 
-  // ปิดแผ่นโดยไม่บันทึก — การ์ดที่ยังว่างเปล่าถือว่ายกเลิก ลบทิ้ง
+  // ปิดแผ่นโดยไม่บันทึก — การ์ดที่ยังไม่มีทั้งข้อความและรูปถือว่ายกเลิก ลบทิ้ง
   async function closeEdit() {
-    if (editing && !editing.content.trim() && !text.trim()) {
+    if (editing && !editing.content.trim() && !text.trim() && !editing.hasPhoto) {
       await deleteCard(editing.id);
+      forgetCardPhoto(editing.id);
       await load();
     }
     setEditing(null);
@@ -252,24 +334,7 @@ export default function Board({ bookId }: { bookId: string }) {
       >
         <div className="board-world" ref={worldRef}>
           {cards.map((c) => (
-            <div
-              key={c.id}
-              className="bcard"
-              data-card={c.id}
-              style={{ ['--x' as string]: c.x + 'px', ['--y' as string]: c.y + 'px' } as React.CSSProperties}
-            >
-              <span className="bcard-pin" />
-              {c.content ? (
-                <div className="bcard-text">{c.content}</div>
-              ) : (
-                <div className="bcard-text empty">แตะเพื่อเขียน</div>
-              )}
-              {c.pos != null && (
-                <span className="bcard-page">
-                  {book?.unit === 'percent' ? `${c.pos}%` : `หน้า ${c.pos}`}
-                </span>
-              )}
-            </div>
+            <BoardCard key={c.id} card={c} unit={book?.unit} />
           ))}
         </div>
 
@@ -285,12 +350,33 @@ export default function Board({ bookId }: { bookId: string }) {
       {editing && (
         <div className="sheet-scrim" onClick={closeEdit}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            {editPhoto && (
+              <div className="sheet-photo">
+                <img src={editPhoto} alt="" />
+                <button className="sheet-photo-rm" onClick={removePhoto}>
+                  ลบรูป
+                </button>
+              </div>
+            )}
+
             <textarea
               autoFocus
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="เขียนเบาะแส…"
             />
+
+            <div className="sheet-addphoto">
+              <label className="photo-btn">
+                ถ่ายรูป
+                <input type="file" accept="image/*" capture="environment" hidden onChange={onPickFile} />
+              </label>
+              <label className="photo-btn">
+                เลือกรูป
+                <input type="file" accept="image/*" hidden onChange={onPickFile} />
+              </label>
+            </div>
+
             <div className="sheet-actions">
               <button className="btn-bare danger" style={{ padding: '10px 0' }} onClick={removeCard}>
                 ลบการ์ด

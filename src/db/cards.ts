@@ -39,9 +39,10 @@ export async function moveCard(id: string, x: number, y: number): Promise<void> 
 }
 
 export async function deleteCard(id: string): Promise<void> {
-  await db.transaction('rw', db.cards, db.threads, async () => {
+  await db.transaction('rw', db.cards, db.threads, db.cardPhotos, async () => {
     await db.threads.where('fromCardId').equals(id).delete();
     await db.threads.where('toCardId').equals(id).delete();
+    await db.cardPhotos.delete(id);
     await db.cards.delete(id);
   });
 }

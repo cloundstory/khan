@@ -538,6 +538,11 @@ input, textarea, select { font: inherit; color: inherit; }
   background: radial-gradient(circle at 35% 30%, #e6c583, var(--brass) 62%, #6f5015);
   box-shadow: 0 2px 3px rgba(0, 0, 0, 0.28);
 }
+.bcard-photo {
+  display: block; width: 100%; max-height: 150px;
+  object-fit: cover; border-radius: 3px; margin-bottom: 9px;
+  -webkit-user-drag: none; user-select: none;
+}
 .bcard-text {
   font-family: var(--serif); font-size: 14px; line-height: 1.65;
   color: var(--ink); white-space: pre-wrap; word-break: break-word;
@@ -578,3 +583,22 @@ input, textarea, select { font: inherit; color: inherit; }
 .sheet textarea:focus { border-color: var(--sage); outline: none; }
 .sheet-actions { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
 .sheet-actions .grow { flex: 1; }
+
+.sheet-photo { position: relative; margin-bottom: 12px; }
+.sheet-photo img {
+  width: 100%; max-height: 220px; object-fit: cover;
+  border-radius: 9px; display: block;
+}
+.sheet-photo-rm {
+  position: absolute; top: 8px; right: 8px;
+  background: rgba(20, 18, 15, 0.6); color: var(--paper-hi);
+  font-size: 12px; padding: 5px 12px; border-radius: 999px;
+  backdrop-filter: blur(4px);
+}
+.sheet-addphoto { display: flex; gap: 10px; margin-top: 12px; }
+.photo-btn {
+  flex: 1; text-align: center; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px; font-size: 13px; color: var(--ink-soft);
+}
+.photo-btn:active { background: var(--paper-low); }

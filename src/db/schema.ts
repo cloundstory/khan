@@ -62,6 +62,8 @@ export interface Card {
   x: number;
   y: number;
   fromSessionId?: string;
+  /** แนบรูปไว้ไหม — รูปจริงอยู่ตาราง cardPhotos แยก เหมือนปกที่ถ่ายเอง */
+  hasPhoto?: boolean;
   createdAt: number;
 }
 
@@ -86,7 +88,14 @@ export interface CoverPhoto {
   addedAt: number;
 }
 
-export const SCHEMA_VERSION = 2;
+/** รูปที่แนบบนการ์ดในบอร์ด — แยกตารางเช่นเดียวกับปก ให้การ์ดเรคอร์ดยังเบา */
+export interface CardPhoto {
+  cardId: string;
+  blob: Blob;
+  addedAt: number;
+}
+
+export const SCHEMA_VERSION = 3;
 
 class RawangDB extends Dexie {
   books!: Table<Book, string>;
@@ -95,6 +104,7 @@ class RawangDB extends Dexie {
   threads!: Table<Thread, string>;
   settings!: Table<Settings, string>;
   covers!: Table<CoverPhoto, string>;
+  cardPhotos!: Table<CardPhoto, string>;
 
   constructor() {
     super('khan');
@@ -108,6 +118,10 @@ class RawangDB extends Dexie {
     // v2 เพิ่มตารางรูปปกอย่างเดียว ไม่แตะข้อมูลเดิม
     this.version(2).stores({
       covers: 'bookId',
+    });
+    // v3 เพิ่มตารางรูปการ์ดอย่างเดียว — additive ล้วน ข้อมูลเดิมไม่ขยับ
+    this.version(3).stores({
+      cardPhotos: 'cardId',
     });
   }
 }

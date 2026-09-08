@@ -14,19 +14,25 @@ export interface Backup {
    * ทำให้ไฟล์โตขึ้นราว 50-80 KB ต่อรูป แต่ backup ที่กู้คืนได้ไม่ครบก็ไม่ใช่ backup
    */
   coverPhotos?: Array<{ bookId: string; dataUrl: string }>;
+  /** รูปที่แนบบนการ์ดบอร์ด เก็บเป็น data URL เช่นเดียวกับปก */
+  cardPhotos?: Array<{ cardId: string; dataUrl: string }>;
 }
 
 export async function buildBackup(): Promise<Backup> {
-  const [books, sessions, cards, threads, covers] = await Promise.all([
+  const [books, sessions, cards, threads, covers, cardPics] = await Promise.all([
     db.books.toArray(),
     db.sessions.toArray(),
     db.cards.toArray(),
     db.threads.toArray(),
     db.covers.toArray(),
+    db.cardPhotos.toArray(),
   ]);
 
   const coverPhotos = await Promise.all(
     covers.map(async (c) => ({ bookId: c.bookId, dataUrl: await blobToDataUrl(c.blob) }))
+  );
+  const cardPhotos = await Promise.all(
+    cardPics.map(async (c) => ({ cardId: c.cardId, dataUrl: await blobToDataUrl(c.blob) }))
   );
 
   return {
@@ -38,6 +44,7 @@ export async function buildBackup(): Promise<Backup> {
     cards,
     threads,
     coverPhotos,
+    cardPhotos,
   };
 }
 
@@ -104,6 +111,19 @@ export async function importBackup(json: unknown): Promise<ImportResult> {
       const blob = await dataUrlToBlob(p.dataUrl);
       await db.covers.put({ bookId: p.bookId, blob, addedAt: Date.now() });
       await db.books.update(p.bookId, { hasCoverPhoto: true });
+      result.added.photos++;
+    } catch {
+      result.skipped++;
+    }
+  }
+
+  // รูปการ์ดกู้คืนแบบเดียวกับปก — ข้ามถ้ามีอยู่แล้ว
+  for (const p of data.cardPhotos ?? []) {
+    if (await db.cardPhotos.get(p.cardId)) { result.skipped++; continue; }
+    try {
+      const blob = await dataUrlToBlob(p.dataUrl);
+      await db.cardPhotos.put({ cardId: p.cardId, blob, addedAt: Date.now() });
+      await db.cards.update(p.cardId, { hasPhoto: true });
       result.added.photos++;
     } catch {
       result.skipped++;

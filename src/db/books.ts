@@ -77,10 +77,13 @@ export async function updateBook(id: string, patch: Partial<Book>): Promise<void
 }
 
 export async function deleteBook(id: string): Promise<void> {
-  await db.transaction('rw', db.books, db.sessions, db.cards, db.threads, async () => {
+  await db.transaction('rw', [db.books, db.sessions, db.cards, db.threads, db.cardPhotos, db.covers], async () => {
+    const cardIds = await db.cards.where('bookId').equals(id).primaryKeys();
+    await db.cardPhotos.bulkDelete(cardIds);
     await db.sessions.where('bookId').equals(id).delete();
     await db.cards.where('bookId').equals(id).delete();
     await db.threads.where('bookId').equals(id).delete();
+    await db.covers.delete(id);
     await db.books.delete(id);
   });
 }
