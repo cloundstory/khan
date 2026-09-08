@@ -10,7 +10,7 @@ export type Screen =
   | { name: 'session'; bookId: string }
   | { name: 'capture'; bookId: string }
   | { name: 'closing'; bookId: string }
-  | { name: 'board'; bookId: string; fromSession?: boolean; resumeOnBack?: boolean }
+  | { name: 'board'; bookId: string }
   | { name: 'settings' };
 
 /** session ที่กำลังเดิน — เก็บใน localStorage กัน refresh แล้วหาย */

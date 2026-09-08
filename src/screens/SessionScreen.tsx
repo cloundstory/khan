@@ -2,38 +2,26 @@ import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../store/useApp';
 import { clockLabel } from '../lib/format';
 import { pausedTotal } from '../lib/stats';
+import Board from './Board';
+
+const SPLIT = 0.62; // สัดส่วนความกว้างบอร์ดตอน "แบ่งครึ่ง"
+const TAP_SLOP = 6;
 
 /**
- * Stopwatch เดินเงียบ ๆ เป็น default
- * countdown เป็น option — และถึงหมดเวลาก็ไม่บังคับหยุด แค่บอกว่าถึงแล้ว
- * พักได้ด้วยการแตะที่นาฬิกา — เวลาอ่านหยุดเดิน ปุ่มจริงยังมีปุ่มเดียวคือหยุด
+ * Stopwatch เดินเงียบ ๆ เป็น default — แตะนาฬิกาเพื่อพัก
+ * บอร์ดเป็นพาเนลเลื่อนเข้ามาจากขวา (ไม่เปลี่ยนหน้า):
+ *   ปิด/แบ่งครึ่ง → นาฬิกาเดิน (จดพร้อมอ่าน)  ·  เต็มจอ → พักอัตโนมัติ (§0)
  */
 export default function SessionScreen({ bookId }: { bookId: string }) {
   const { books, active, go, pauseSession, resumeSession } = useApp();
   const book = books.find((b) => b.id === bookId);
   const [now, setNow] = useState(Date.now());
   const paused = Boolean(active?.pausedAt);
-  const swipe = useRef<{ x: number; y: number } | null>(null);
 
-  // ปัดไปบอร์ด (หรือแตะหูจับขอบ) — จดเบาะแสกลางการอ่าน โดยพักนาฬิกาให้อัตโนมัติ
-  function openBoard() {
-    const wasReading = !paused;
-    if (wasReading) pauseSession();
-    go({ name: 'board', bookId, fromSession: true, resumeOnBack: wasReading });
-  }
-
-  function onDown(e: React.PointerEvent) {
-    swipe.current = { x: e.clientX, y: e.clientY };
-  }
-  function onUp(e: React.PointerEvent) {
-    const s = swipe.current;
-    swipe.current = null;
-    if (!s) return;
-    const dx = e.clientX - s.x;
-    const dy = e.clientY - s.y;
-    // ปัดซ้ายชัด ๆ (แนวนอนมากกว่าแนวตั้ง) = เปิดบอร์ด — ไม่ชนกับการแตะนาฬิกา (ไม่ขยับ)
-    if (dx < -60 && Math.abs(dx) > Math.abs(dy) * 1.5) openBoard();
-  }
+  const [panelW, setPanelW] = useState(0); // px กว้างของพาเนลบอร์ด
+  const drag = useRef<{ x: number; w: number; moved: number } | null>(null);
+  const isFull = useRef(false);
+  const wasReading = useRef(false); // ก่อนเปิดเต็ม กำลังอ่านอยู่ไหม (ไว้ resume ตอนหุบ)
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -41,14 +29,57 @@ export default function SessionScreen({ bookId }: { bookId: string }) {
   }, []);
 
   useEffect(() => {
-    // กันหน้าจอดับระหว่างอ่าน ถ้าเบราว์เซอร์รองรับ
-    // ตอนพักปล่อยให้จอดับได้ตามปกติ — ไม่มีใครอ่านอยู่
+    // กันจอดับระหว่างอ่าน — ตอนพักปล่อยให้ดับได้
     if (paused) return;
     let lock: WakeLockSentinel | undefined;
     const nav = navigator as Navigator & { wakeLock?: WakeLock };
     nav.wakeLock?.request('screen').then((l) => { lock = l; }).catch(() => {});
     return () => { lock?.release().catch(() => {}); };
   }, [paused]);
+
+  const fullW = () => window.innerWidth;
+  const splitW = () => Math.round(window.innerWidth * SPLIT);
+
+  // เต็มจอ = พัก · หุบออกจากเต็ม = เดินต่อ (ถ้าตอนเปิดเต็มกำลังอ่านอยู่)
+  function applyPause(w: number) {
+    const nowFull = w >= fullW() - 2;
+    if (nowFull && !isFull.current) {
+      isFull.current = true;
+      wasReading.current = !Boolean(active?.pausedAt);
+      if (wasReading.current) pauseSession();
+    } else if (!nowFull && isFull.current) {
+      isFull.current = false;
+      if (wasReading.current) resumeSession();
+    }
+  }
+
+  function snap(w: number) {
+    const cands = [0, splitW(), fullW()];
+    let best = cands[0];
+    for (const c of cands) if (Math.abs(w - c) < Math.abs(w - best)) best = c;
+    setPanelW(best);
+    applyPause(best);
+  }
+
+  function hDown(e: React.PointerEvent) {
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag.current = { x: e.clientX, w: panelW, moved: 0 };
+  }
+  function hMove(e: React.PointerEvent) {
+    const d = drag.current;
+    if (!d) return;
+    const dx = e.clientX - d.x;
+    d.moved = Math.max(d.moved, Math.abs(dx));
+    const w = Math.max(0, Math.min(fullW(), d.w - dx)); // ลากซ้าย (dx<0) = กว้างขึ้น
+    setPanelW(w);
+  }
+  function hUp() {
+    const d = drag.current;
+    drag.current = null;
+    if (!d) return;
+    if (d.moved < TAP_SLOP) snap(panelW > 0 ? 0 : splitW()); // แตะ = สลับ ปิด/แบ่งครึ่ง
+    else snap(panelW);
+  }
 
   if (!active || !book) {
     return (
@@ -64,16 +95,7 @@ export default function SessionScreen({ bookId }: { bookId: string }) {
   const reached = target != null && elapsed >= target;
 
   return (
-    <div
-      className={paused ? 'reading is-paused' : 'reading'}
-      onPointerDown={onDown}
-      onPointerUp={onUp}
-    >
-      {/* หูจับขอบขวา — แตะหรือปัดซ้ายเพื่อไปบอร์ด */}
-      <button className="reading-board-tab" onClick={openBoard} aria-label="ไปบอร์ดเบาะแส">
-        บอร์ด ‹
-      </button>
-
+    <div className={paused ? 'reading is-paused' : 'reading'}>
       <div className="reading-book">{book.title}</div>
 
       <button
@@ -97,6 +119,27 @@ export default function SessionScreen({ bookId }: { bookId: string }) {
       <button className="reading-stop" onClick={() => go({ name: 'capture', bookId })}>
         หยุดอ่าน
       </button>
+
+      {/* หูจับลูกศร — ลากซ้ายเพื่อดึงบอร์ดเข้ามา แตะเพื่อสลับ ปิด/แบ่งครึ่ง
+          clamp ไม่ให้เลื่อนหลุดจอตอนเต็ม จะได้ยังจับลากกลับได้ */}
+      <button
+        className="board-handle"
+        style={{ right: Math.min(panelW, window.innerWidth - 32) }}
+        onPointerDown={hDown}
+        onPointerMove={hMove}
+        onPointerUp={hUp}
+        onPointerCancel={hUp}
+        aria-label="เปิด/ปิดบอร์ด"
+      >
+        {panelW > 4 ? '›' : '‹'}
+      </button>
+
+      {/* พาเนลบอร์ด — เลื่อนเข้ามาทับ timer โดยไม่เปลี่ยนหน้า */}
+      {panelW > 0 && (
+        <div className="board-panel" style={{ width: panelW }}>
+          <Board bookId={bookId} panel />
+        </div>
+      )}
     </div>
   );
 }
