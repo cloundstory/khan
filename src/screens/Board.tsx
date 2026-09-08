@@ -21,11 +21,13 @@ const MAX_Z = 2.4;
 const TAP_SLOP = 5; // px รวม — ต่ำกว่านี้ถือว่าแตะ ไม่ใช่ลาก
 
 // พารามิเตอร์เชือก verlet
+// SLACK = ความยาวเชือกเทียบระยะหมุด (แยกจากฟิสิกส์) — 1.03 = ตึงเกือบสุด เหลือหย่อนบาง ๆ
+// แต่ verlet ยังทำงานเต็ม เชือกจึงสะบัด/แกว่งตามการ์ดจริง แค่ดึงกลับเข้าตึงเร็ว
 const ROPE_N = 16; // จำนวนปม
-const SLACK = 1.12; // เชือกยาวกว่าระยะตรง 12% → หย่อน
-const GRAVITY = 0.55;
-const DAMP = 0.98;
-const ITER = 6; // รอบ constraint ต่อเฟรม
+const SLACK = 1.006;
+const GRAVITY = 0.32;
+const DAMP = 0.97;
+const ITER = 16; // รอบ constraint ต่อเฟรม — มากขึ้น = ดึงตึงถึงความยาวจริง หย่อนน้อยลง
 const ENERGY_EPS = 0.5; // ต่ำกว่านี้ = นิ่งแล้ว หยุด loop
 
 type Anchor = { x: number; y: number };
