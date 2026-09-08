@@ -57,6 +57,10 @@ export async function addThread(
   return thread;
 }
 
+export async function deleteThread(id: string): Promise<void> {
+  await db.threads.delete(id);
+}
+
 export async function setTension(id: string, tension: Tension): Promise<void> {
   await db.threads.update(id, { tension });
 }

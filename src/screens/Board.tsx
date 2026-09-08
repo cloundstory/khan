@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApp } from '../store/useApp';
-import { cardsOf, moveCard, addCard, deleteCard, editCard, spiralXY } from '../db/cards';
+import {
+  cardsOf,
+  moveCard,
+  addCard,
+  deleteCard,
+  editCard,
+  spiralXY,
+  threadsOf,
+  addThread,
+  deleteThread,
+} from '../db/cards';
 import { getCardPhoto, putCardPhoto, deleteCardPhoto } from '../db/cardPhotos';
 import { useCardPhoto, forgetCardPhoto } from '../lib/useCardPhoto';
 import { shrinkToCover } from '../lib/photo';
-import type { Card } from '../db/schema';
+import type { Card, Thread } from '../db/schema';
 
 const MIN_Z = 0.45;
 const MAX_Z = 2.4;
@@ -24,7 +34,17 @@ type Gesture =
       lastX: number;
       lastY: number;
     }
+  | { type: 'wire'; fromId: string; fromX: number; fromY: number }
   | { type: 'pinch'; startDist: number; startZoom: number; fx: number; fy: number };
+
+/** เส้นด้ายหย่อนเล็กน้อย — bezier จุดควบคุมหย่อนลงตามระยะห่าง ไม่จำลอง Verlet */
+function wirePath(ax: number, ay: number, bx: number, by: number): string {
+  const mx = (ax + bx) / 2;
+  const my = (ay + by) / 2;
+  const dist = Math.hypot(bx - ax, by - ay);
+  const cy = my + Math.max(6, dist * 0.16);
+  return `M${ax},${ay} Q${mx},${cy} ${bx},${by}`;
+}
 
 function BoardCard({ card, unit }: { card: Card; unit?: string }) {
   const photo = useCardPhoto(card.id, card.hasPhoto);
@@ -53,23 +73,31 @@ export default function Board({ bookId }: { bookId: string }) {
   const book = books.find((b) => b.id === bookId);
 
   const [cards, setCards] = useState<Card[]>([]);
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [connect, setConnect] = useState(false);
   const [editing, setEditing] = useState<Card | null>(null);
   const [text, setText] = useState('');
   const [editPhoto, setEditPhoto] = useState<string | null>(null);
 
   const surfaceRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
+  const wireRef = useRef<SVGPathElement>(null);
   const view = useRef({ panX: 0, panY: 0, zoom: 1 });
   const gesture = useRef<Gesture | null>(null);
   const pointers = useRef<Map<number, { x: number; y: number }>>(new Map());
 
   const load = useCallback(async () => {
-    setCards(await cardsOf(bookId));
+    const [cs, ts] = await Promise.all([cardsOf(bookId), threadsOf(bookId)]);
+    setCards(cs);
+    setThreads(ts);
   }, [bookId]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const cardMap: Record<string, Card> = {};
+  for (const c of cards) cardMap[c.id] = c;
 
   function applyView() {
     const w = worldRef.current;
@@ -79,7 +107,7 @@ export default function Board({ bookId }: { bookId: string }) {
   }
   useEffect(applyView, [cards]);
 
-  // โหลดรูปของการ์ดที่กำลังแก้เข้าแผ่นล่าง (object URL แยกจาก cache ของบอร์ด — revoke เองตอนปิด)
+  // โหลดรูปของการ์ดที่กำลังแก้เข้าแผ่นล่าง
   useEffect(() => {
     if (!editing || !editing.hasPhoto) {
       setEditPhoto(null);
@@ -98,7 +126,7 @@ export default function Board({ bookId }: { bookId: string }) {
     };
   }, [editing]);
 
-  // wheel ต้อง preventDefault เอง (React ผูก wheel แบบ passive) — bind ตรงกับ element
+  // wheel ต้อง preventDefault เอง (React ผูก wheel แบบ passive)
   useEffect(() => {
     const surf = surfaceRef.current;
     if (!surf) return;
@@ -125,6 +153,15 @@ export default function Board({ bookId }: { bookId: string }) {
     return surfaceRef.current!.getBoundingClientRect();
   }
 
+  // แปลงพิกัดนิ้ว/เมาส์ → พิกัดในโลกของบอร์ด (หักพื้นเลื่อนและซูมออก)
+  function toWorld(clientX: number, clientY: number) {
+    const r = surfRect();
+    return {
+      x: (clientX - r.left - view.current.panX) / view.current.zoom,
+      y: (clientY - r.top - view.current.panY) / view.current.zoom,
+    };
+  }
+
   function beginPinch() {
     const pts = [...pointers.current.values()];
     const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -132,6 +169,7 @@ export default function Board({ bookId }: { bookId: string }) {
     const mx = (pts[0].x + pts[1].x) / 2 - r.left;
     const my = (pts[0].y + pts[1].y) / 2 - r.top;
     const { panX, panY, zoom } = view.current;
+    if (wireRef.current) wireRef.current.style.display = 'none';
     gesture.current = {
       type: 'pinch',
       startDist: dist,
@@ -156,18 +194,27 @@ export default function Board({ bookId }: { bookId: string }) {
       const id = cardEl.dataset.card!;
       const c = cards.find((k) => k.id === id);
       if (!c) return;
-      gesture.current = {
-        type: 'card',
-        id,
-        el: cardEl,
-        sx: e.clientX,
-        sy: e.clientY,
-        startX: c.x,
-        startY: c.y,
-        moved: 0,
-        lastX: c.x,
-        lastY: c.y,
-      };
+      if (connect) {
+        gesture.current = { type: 'wire', fromId: id, fromX: c.x, fromY: c.y };
+        const wp = wireRef.current;
+        if (wp) {
+          wp.setAttribute('d', wirePath(c.x, c.y, c.x, c.y));
+          wp.style.display = '';
+        }
+      } else {
+        gesture.current = {
+          type: 'card',
+          id,
+          el: cardEl,
+          sx: e.clientX,
+          sy: e.clientY,
+          startX: c.x,
+          startY: c.y,
+          moved: 0,
+          lastX: c.x,
+          lastY: c.y,
+        };
+      }
     } else {
       gesture.current = {
         type: 'pan',
@@ -210,14 +257,39 @@ export default function Board({ bookId }: { bookId: string }) {
       g.lastY = Math.round(g.startY + dy / view.current.zoom);
       g.el.style.setProperty('--x', g.lastX + 'px');
       g.el.style.setProperty('--y', g.lastY + 'px');
+    } else if (g.type === 'wire') {
+      const w = toWorld(e.clientX, e.clientY);
+      const wp = wireRef.current;
+      if (wp) wp.setAttribute('d', wirePath(g.fromX, g.fromY, w.x, w.y));
     }
+  }
+
+  async function finishWire(fromId: string, clientX: number, clientY: number) {
+    const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+    const toId = el?.closest('[data-card]')?.getAttribute('data-card');
+    if (!toId || toId === fromId) return;
+    const dup = threads.some(
+      (t) =>
+        (t.fromCardId === fromId && t.toCardId === toId) ||
+        (t.fromCardId === toId && t.toCardId === fromId)
+    );
+    if (dup) {
+      say('สองใบนี้โยงกันอยู่แล้ว');
+      return;
+    }
+    await addThread(bookId, fromId, toId);
+    setThreads(await threadsOf(bookId));
+    say('ขึงด้ายแล้ว');
   }
 
   function onPointerUp(e: React.PointerEvent) {
     pointers.current.delete(e.pointerId);
     const g = gesture.current;
 
-    if (g && g.type === 'card' && pointers.current.size === 0) {
+    if (g && g.type === 'wire' && pointers.current.size === 0) {
+      if (wireRef.current) wireRef.current.style.display = 'none';
+      finishWire(g.fromId, e.clientX, e.clientY);
+    } else if (g && g.type === 'card' && pointers.current.size === 0) {
       if (g.moved < TAP_SLOP) {
         const c = cards.find((k) => k.id === g.id);
         if (c) {
@@ -233,10 +305,15 @@ export default function Board({ bookId }: { bookId: string }) {
     if (pointers.current.size === 0) {
       gesture.current = null;
     } else if (pointers.current.size === 1) {
-      // นิ้วเหลือหนึ่ง (เพิ่งปล่อยจาก pinch) → กลับไปโหมดเลื่อนบอร์ด
       const [pt] = [...pointers.current.values()];
       gesture.current = { type: 'pan', sx: pt.x, sy: pt.y, px: view.current.panX, py: view.current.panY };
     }
+  }
+
+  async function removeThread(id: string) {
+    await deleteThread(id);
+    setThreads(await threadsOf(bookId));
+    say('ปลดด้ายแล้ว');
   }
 
   async function newCard() {
@@ -254,7 +331,7 @@ export default function Board({ bookId }: { bookId: string }) {
     try {
       const blob = await shrinkToCover(file, 720, 0.72);
       await putCardPhoto(editing.id, blob);
-      forgetCardPhoto(editing.id); // ให้บอร์ดโหลดรูปใหม่แทนของเก่าใน cache
+      forgetCardPhoto(editing.id);
       setEditPhoto((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return URL.createObjectURL(blob);
@@ -301,7 +378,6 @@ export default function Board({ bookId }: { bookId: string }) {
     await load();
   }
 
-  // ปิดแผ่นโดยไม่บันทึก — การ์ดที่ยังไม่มีทั้งข้อความและรูปถือว่ายกเลิก ลบทิ้ง
   async function closeEdit() {
     if (editing && !editing.content.trim() && !text.trim() && !editing.hasPhoto) {
       await deleteCard(editing.id);
@@ -319,13 +395,20 @@ export default function Board({ bookId }: { bookId: string }) {
           ← กลับ
         </button>
         <div className="board-title">{book?.title ?? 'บอร์ด'}</div>
+        <button
+          className={'board-connect' + (connect ? ' on' : '')}
+          aria-pressed={connect}
+          onClick={() => setConnect((v) => !v)}
+        >
+          ขึงด้าย
+        </button>
         <button className="board-add" onClick={newCard} aria-label="เพิ่มการ์ด">
           ＋
         </button>
       </div>
 
       <div
-        className="board-surface"
+        className={'board-surface' + (connect ? ' connect' : '')}
         ref={surfaceRef}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -333,10 +416,34 @@ export default function Board({ bookId }: { bookId: string }) {
         onPointerCancel={onPointerUp}
       >
         <div className="board-world" ref={worldRef}>
+          <svg className={'board-threads' + (connect ? ' connect' : '')}>
+            {threads.map((t) => {
+              const a = cardMap[t.fromCardId];
+              const b = cardMap[t.toCardId];
+              if (!a || !b) return null;
+              const d = wirePath(a.x, a.y, b.x, b.y);
+              return (
+                <g key={t.id}>
+                  <path className="thread-line" d={d} />
+                  <path
+                    className="thread-hit"
+                    d={d}
+                    data-thread={t.id}
+                    onPointerDown={connect ? (e) => e.stopPropagation() : undefined}
+                    onClick={connect ? () => removeThread(t.id) : undefined}
+                  />
+                </g>
+              );
+            })}
+            <path ref={wireRef} className="thread-line wire-live" style={{ display: 'none' }} />
+          </svg>
+
           {cards.map((c) => (
             <BoardCard key={c.id} card={c} unit={book?.unit} />
           ))}
         </div>
+
+        {connect && <div className="board-hint">ลากจากการ์ดหนึ่งไปอีกใบเพื่อขึงด้าย · แตะเส้นเพื่อปลด</div>}
 
         {cards.length === 0 && (
           <div className="board-empty">

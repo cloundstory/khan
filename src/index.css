@@ -509,6 +509,13 @@ input, textarea, select { font: inherit; color: inherit; }
   border: 1px solid var(--line); color: var(--ink-soft);
   font-size: 21px; line-height: 1; display: grid; place-items: center;
 }
+/* โหมดขึงด้าย — ปุ่มเดียวที่เป็นสีแดงในทั้งแอป (จุดกล้าจุดเดียว) */
+.board-connect {
+  flex: 0 0 auto; border: 1px solid var(--line); border-radius: 999px;
+  padding: 7px 14px; font-size: 12.5px; color: var(--ink-soft);
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.board-connect.on { background: #a5312a; border-color: #a5312a; color: #fbeee9; }
 
 .board-surface {
   flex: 1; position: relative; overflow: hidden;
@@ -517,12 +524,28 @@ input, textarea, select { font: inherit; color: inherit; }
   background-size: 24px 24px;
 }
 .board-surface:active { cursor: grabbing; }
+.board-surface.connect { cursor: crosshair; }
 
 .board-world {
   position: absolute; left: 50%; top: 50%;
   width: 0; height: 0; transform-origin: 0 0;
   will-change: transform;
 }
+
+/* ---------- เส้นด้ายแดง ---------- */
+/* SVG อยู่ที่จุดกำเนิดโลก วาดพิกัดเป็นหน่วยโลก overflow มองเห็นเกินกล่อง
+   วางก่อนการ์ดใน DOM → การ์ดทับปลายด้าย เหมือนด้ายมุดใต้การ์ด */
+.board-threads {
+  position: absolute; left: 0; top: 0; width: 1px; height: 1px;
+  overflow: visible; pointer-events: none;
+}
+.thread-line {
+  fill: none; stroke: #a5312a; stroke-width: 3; stroke-linecap: round;
+  filter: drop-shadow(0 1.5px 1px rgba(50, 20, 15, 0.35));
+}
+.thread-hit { fill: none; stroke: transparent; stroke-width: 18; stroke-linecap: round; }
+.board-threads.connect .thread-hit { pointer-events: stroke; cursor: pointer; }
+.wire-live { opacity: 0.9; }
 
 .bcard {
   position: absolute;
@@ -558,6 +581,13 @@ input, textarea, select { font: inherit; color: inherit; }
   position: absolute; inset: 0; display: grid; place-items: center;
   text-align: center; line-height: 1.9;
   color: var(--ink-faint); font-size: 13.5px; pointer-events: none;
+}
+.board-hint {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  background: rgba(20, 18, 15, 0.82); color: var(--paper-hi);
+  font-size: 12px; padding: 7px 15px; border-radius: 999px;
+  white-space: nowrap; pointer-events: none; z-index: 3;
+  backdrop-filter: blur(6px);
 }
 
 /* ---------- แผ่นแก้ข้อความ (bottom sheet) ---------- */
