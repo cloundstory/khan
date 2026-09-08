@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../store/useApp';
 import { clockLabel } from '../lib/format';
 import { pausedTotal } from '../lib/stats';
@@ -13,6 +13,27 @@ export default function SessionScreen({ bookId }: { bookId: string }) {
   const book = books.find((b) => b.id === bookId);
   const [now, setNow] = useState(Date.now());
   const paused = Boolean(active?.pausedAt);
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+
+  // ปัดไปบอร์ด (หรือแตะหูจับขอบ) — จดเบาะแสกลางการอ่าน โดยพักนาฬิกาให้อัตโนมัติ
+  function openBoard() {
+    const wasReading = !paused;
+    if (wasReading) pauseSession();
+    go({ name: 'board', bookId, fromSession: true, resumeOnBack: wasReading });
+  }
+
+  function onDown(e: React.PointerEvent) {
+    swipe.current = { x: e.clientX, y: e.clientY };
+  }
+  function onUp(e: React.PointerEvent) {
+    const s = swipe.current;
+    swipe.current = null;
+    if (!s) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    // ปัดซ้ายชัด ๆ (แนวนอนมากกว่าแนวตั้ง) = เปิดบอร์ด — ไม่ชนกับการแตะนาฬิกา (ไม่ขยับ)
+    if (dx < -60 && Math.abs(dx) > Math.abs(dy) * 1.5) openBoard();
+  }
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -43,7 +64,16 @@ export default function SessionScreen({ bookId }: { bookId: string }) {
   const reached = target != null && elapsed >= target;
 
   return (
-    <div className={paused ? 'reading is-paused' : 'reading'}>
+    <div
+      className={paused ? 'reading is-paused' : 'reading'}
+      onPointerDown={onDown}
+      onPointerUp={onUp}
+    >
+      {/* หูจับขอบขวา — แตะหรือปัดซ้ายเพื่อไปบอร์ด */}
+      <button className="reading-board-tab" onClick={openBoard} aria-label="ไปบอร์ดเบาะแส">
+        บอร์ด ‹
+      </button>
+
       <div className="reading-book">{book.title}</div>
 
       <button

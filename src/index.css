@@ -291,6 +291,12 @@ input, textarea, select { font: inherit; color: inherit; }
 .reading-hint { font-size: 12.5px; color: var(--room-dim); }
 .reading.is-paused .reading-clock { color: var(--room-dim); }
 .reading-stop { border: 1px solid var(--room-line); border-radius: 999px; padding: 13px 34px; font-size: 14.5px; color: var(--room-paper); }
+/* หูจับไปบอร์ด — เงียบ ๆ ริมขวา แตะหรือปัดซ้ายก็ได้ */
+.reading-board-tab {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  padding: 11px 13px; border: 1px solid var(--room-line); border-radius: 999px;
+  font-size: 12.5px; color: var(--room-dim); background: rgba(237, 231, 218, 0.03);
+}
 
 /* ---------- รายการ session ---------- */
 .session-row { padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
@@ -493,11 +499,22 @@ input, textarea, select { font: inherit; color: inherit; }
   position: fixed; inset: 0; z-index: 40;
   display: flex; flex-direction: column;
   background: var(--lvl-desk);
+  animation: board-appear 200ms ease;
+}
+@keyframes board-appear {
+  from { opacity: 0; transform: scale(0.985); }
+  to { opacity: 1; transform: scale(1); }
+}
+/* แถบปัดกลับที่ขอบซ้าย — อยู่เหนือพื้นบอร์ดเฉพาะ 22px ริมซ้าย ไม่ชนโซนลากบอร์ด */
+.board-edge-back {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 22px; z-index: 1;
 }
 .board-bar {
+  position: relative; z-index: 2;
   display: flex; align-items: center; gap: 12px;
   padding: calc(var(--safe-t) + 12px) 16px 10px;
   border-bottom: 1px solid var(--line-soft);
+  background: var(--lvl-desk);
 }
 .board-title {
   flex: 1; text-align: center; min-width: 0;

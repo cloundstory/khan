@@ -111,9 +111,40 @@ function BoardCard({ card, unit }: { card: Card; unit?: string }) {
   );
 }
 
-export default function Board({ bookId }: { bookId: string }) {
-  const { books, go, say } = useApp();
+export default function Board({
+  bookId,
+  fromSession,
+  resumeOnBack,
+}: {
+  bookId: string;
+  fromSession?: boolean;
+  resumeOnBack?: boolean;
+}) {
+  const { books, go, say, resumeSession } = useApp();
   const book = books.find((b) => b.id === bookId);
+
+  // กลับจากบอร์ด — ถ้ามาจากหน้าอ่าน ให้เดินนาฬิกาต่อ (ถ้าตอนออกมากำลังอ่านอยู่)
+  function goBack() {
+    if (fromSession) {
+      if (resumeOnBack) resumeSession();
+      go({ name: 'session', bookId });
+    } else {
+      go({ name: 'book', bookId });
+    }
+  }
+
+  // แถบปัดกลับที่ขอบซ้าย (เฉพาะตอนมาจากหน้าอ่าน) — แยกโซนจากการลากบอร์ด
+  const edgeSwipe = useRef<{ x: number; y: number } | null>(null);
+  function edgeDown(e: React.PointerEvent) {
+    edgeSwipe.current = { x: e.clientX, y: e.clientY };
+  }
+  function edgeUp(e: React.PointerEvent) {
+    const s = edgeSwipe.current;
+    edgeSwipe.current = null;
+    if (!s) return;
+    const dx = e.clientX - s.x;
+    if (dx > 50 && Math.abs(dx) > Math.abs(e.clientY - s.y) * 1.5) goBack();
+  }
 
   const [cards, setCards] = useState<Card[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -602,9 +633,12 @@ export default function Board({ bookId }: { bookId: string }) {
 
   return (
     <div className="board-page">
+      {fromSession && (
+        <div className="board-edge-back" onPointerDown={edgeDown} onPointerUp={edgeUp} aria-hidden="true" />
+      )}
       <div className="board-bar">
-        <button className="back" style={{ margin: 0 }} onClick={() => go({ name: 'book', bookId })}>
-          ← กลับ
+        <button className="back" style={{ margin: 0 }} onClick={goBack}>
+          {fromSession ? '← อ่านต่อ' : '← กลับ'}
         </button>
         <div className="board-title">{book?.title ?? 'บอร์ด'}</div>
         <button

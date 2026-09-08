@@ -44,7 +44,13 @@ export default function App() {
       {screen.name === 'book' && <BookSheet bookId={screen.bookId} />}
       {screen.name === 'capture' && <Capture bookId={screen.bookId} />}
       {screen.name === 'closing' && <Closing bookId={screen.bookId} />}
-      {screen.name === 'board' && <Board bookId={screen.bookId} />}
+      {screen.name === 'board' && (
+        <Board
+          bookId={screen.bookId}
+          fromSession={screen.fromSession}
+          resumeOnBack={screen.resumeOnBack}
+        />
+      )}
       {screen.name === 'add' && <AddBook />}
       {screen.name === 'settings' && <Settings />}
       {toast && <div className="toast">{toast}</div>}
