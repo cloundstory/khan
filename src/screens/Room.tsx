@@ -43,7 +43,7 @@ export default function Room() {
   }
 
   return (
-    <div className="page">
+    <div className="page room">
       <div className="topline">
         <span className="wordmark">คั่น</span>
         <button className="icon-btn" onClick={() => go({ name: 'settings' })} aria-label="ตั้งค่า">
@@ -66,6 +66,8 @@ export default function Room() {
             <div className="plank" />
           </>
         )}
+        {/* ต้นไม้ยืนบนชั้น ริมขวา — ผูกกับโซนชั้นเพื่อให้อยู่ระดับไม้กระดานเสมอ */}
+        <RoomPlant />
       </Zone>
 
       <Zone name="โต๊ะ" tone="desk" count={desk.length} note={desk.length > 3 ? 'โต๊ะเริ่มแน่น' : undefined}>
@@ -248,6 +250,29 @@ function OpenBook(props: { book: Book; sessions: Session[]; onClick: () => void 
 
       <span className="ribbon" />
     </button>
+  );
+}
+
+/**
+ * ต้นไม้กระถางในห้อง — วัตถุจริง เขียว พักสายตา (ตามที่กอล์ฟอยากได้)
+ * ยืนอยู่ริมขวาของห้อง เด่นบนเดสก์ท็อปที่มีที่ว่าง · ใบไหวเบา ๆ (reduced-motion ปิดให้เอง)
+ */
+function RoomPlant() {
+  return (
+    <svg className="room-plant" viewBox="0 0 120 184" aria-hidden="true">
+      <ellipse cx="60" cy="176" rx="33" ry="6" fill="rgba(42,38,34,0.16)" />
+      <g className="room-plant-leaves">
+        <path transform="rotate(-46 60 130)" d="M60 130 C51 98 49 68 60 40 C71 68 69 98 60 130 Z" fill="#4f7360" />
+        <path transform="rotate(-24 60 130)" d="M60 130 C50 96 48 62 60 32 C72 62 70 96 60 130 Z" fill="#6f8f6e" />
+        <path transform="rotate(0 60 130)" d="M60 130 C51 94 50 58 60 26 C70 58 69 94 60 130 Z" fill="#5f7d5e" />
+        <path transform="rotate(24 60 130)" d="M60 130 C50 96 48 62 60 32 C72 62 70 96 60 130 Z" fill="#6f8f6e" />
+        <path transform="rotate(46 60 130)" d="M60 130 C51 98 49 68 60 40 C71 68 69 98 60 130 Z" fill="#4f7360" />
+      </g>
+      <path d="M35 130 L85 130 L79 174 L41 174 Z" fill="#b27b48" />
+      <path d="M35 130 L85 130 L82.5 152 L37.5 152 Z" fill="#c08a56" />
+      <rect x="31" y="122" width="58" height="12" rx="2.5" fill="#c08a56" />
+      <rect x="31" y="122" width="58" height="4" rx="2" fill="rgba(255,255,255,0.18)" />
+    </svg>
   );
 }
 
