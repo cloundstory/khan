@@ -24,10 +24,13 @@ const TAP_SLOP = 5; // px รวม — ต่ำกว่านี้ถือ�
 // SLACK = ความยาวเชือกเทียบระยะหมุด (แยกจากฟิสิกส์) — 1.03 = ตึงเกือบสุด เหลือหย่อนบาง ๆ
 // แต่ verlet ยังทำงานเต็ม เชือกจึงสะบัด/แกว่งตามการ์ดจริง แค่ดึงกลับเข้าตึงเร็ว
 const ROPE_N = 16; // จำนวนปม
-const SLACK = 1.006;
-const GRAVITY = 0.32;
+const SLACK = 1.03; // เชือกยาวกว่าระยะหมุด — ให้ sim มีที่แกว่งเป็นธรรมชาติ
+const GRAVITY = 0.5;
 const DAMP = 0.97;
-const ITER = 16; // รอบ constraint ต่อเฟรม — มากขึ้น = ดึงตึงถึงความยาวจริง หย่อนน้อยลง
+const ITER = 8; // รอบ constraint ต่อเฟรม
+// ดึงภาพเชือกเข้าหาเส้นตรงตอนวาด (แยกจาก sim) — 0 = หย่อนเต็มฟิสิกส์, 1 = ตรงเป๊ะ
+// วิธีนี้คุมความตึงที่ "ภาพ" โดยไม่ฆ่าการแกว่งของฟิสิกส์ (sim ยังหย่อน+สะบัดเต็ม)
+const TAUT = 0.72;
 const ENERGY_EPS = 0.5; // ต่ำกว่านี้ = นิ่งแล้ว หยุด loop
 
 type Anchor = { x: number; y: number };
@@ -60,16 +63,29 @@ function wirePath(ax: number, ay: number, bx: number, by: number): string {
   return `M${ax},${ay} Q${mx},${cy} ${bx},${by}`;
 }
 
-/** เส้นเรียบผ่านปมทั้งหมดของเชือก (quadratic smoothing) */
-function ropeD(pts: RopePt[]): string {
+/**
+ * เส้นเรียบผ่านปมของเชือก — แต่ดึงแต่ละปมเข้าหาเส้นตรง A→B ตามค่า TAUT ก่อนวาด
+ * ทำให้ "ภาพ" ตึงได้ตามใจ โดย sim (pts) ยังหย่อน/สะบัดเต็มที่ (ปลายสองข้างไม่ขยับเพราะตรงกับ a,b อยู่แล้ว)
+ */
+function ropeD(pts: RopePt[], a: Anchor, b: Anchor): string {
   const n = pts.length;
-  let d = `M${pts[0].x.toFixed(1)},${pts[0].y.toFixed(1)}`;
+  const bx = (i: number) => {
+    const t = i / (n - 1);
+    const sx = a.x + (b.x - a.x) * t;
+    const sy = a.y + (b.y - a.y) * t;
+    return { x: pts[i].x + (sx - pts[i].x) * TAUT, y: pts[i].y + (sy - pts[i].y) * TAUT };
+  };
+  const p0 = bx(0);
+  let d = `M${p0.x.toFixed(1)},${p0.y.toFixed(1)}`;
   for (let i = 1; i < n - 1; i++) {
-    const xc = (pts[i].x + pts[i + 1].x) / 2;
-    const yc = (pts[i].y + pts[i + 1].y) / 2;
-    d += ` Q${pts[i].x.toFixed(1)},${pts[i].y.toFixed(1)} ${xc.toFixed(1)},${yc.toFixed(1)}`;
+    const pi = bx(i);
+    const pn = bx(i + 1);
+    const xc = (pi.x + pn.x) / 2;
+    const yc = (pi.y + pn.y) / 2;
+    d += ` Q${pi.x.toFixed(1)},${pi.y.toFixed(1)} ${xc.toFixed(1)},${yc.toFixed(1)}`;
   }
-  d += ` L${pts[n - 1].x.toFixed(1)},${pts[n - 1].y.toFixed(1)}`;
+  const pl = bx(n - 1);
+  d += ` L${pl.x.toFixed(1)},${pl.y.toFixed(1)}`;
   return d;
 }
 
@@ -251,7 +267,7 @@ export default function Board({ bookId }: { bookId: string }) {
         for (let s = 0; s < 24; s++) stepRope(rope, a, b);
       }
       rope.key = `${a.x},${a.y},${b.x},${b.y}`;
-      const d = ropeD(rope.pts);
+      const d = ropeD(rope.pts, a, b);
       lineEls.current.get(t.id)?.setAttribute('d', d);
       hitEls.current.get(t.id)?.setAttribute('d', d);
     }
@@ -277,7 +293,7 @@ export default function Board({ bookId }: { bookId: string }) {
       const e = stepRope(rope, a, b);
       energy += e;
       if (moved || e > ENERGY_EPS) {
-        const d = ropeD(rope.pts);
+        const d = ropeD(rope.pts, a, b);
         lineEls.current.get(t.id)?.setAttribute('d', d);
         hitEls.current.get(t.id)?.setAttribute('d', d);
       }
