@@ -6,7 +6,7 @@ import { statsFor, daysInPile, readingMs } from '../lib/stats';
 import { posLabel, dateLabel, durationLabel } from '../lib/format';
 import { toDesk, toPile, reread } from '../db/books';
 import { addCard, cardsOf, spiralXY } from '../db/cards';
-import Book3D from '../components/Book3D';
+import HandBook from '../components/HandBook';
 import type { Book, Session } from '../db/schema';
 
 export default function BookSheet({ bookId }: { bookId: string }) {
@@ -57,7 +57,7 @@ export default function BookSheet({ bookId }: { bookId: string }) {
     <div className="page">
       <button className="back" onClick={() => go({ name: 'room' })}>← กลับห้อง</button>
 
-      <Book3D book={book} />
+      <HandBook book={book} />
 
       <div className="book-head">
         <div className="wordmark" style={{ fontSize: 19 }}>{book.title}</div>

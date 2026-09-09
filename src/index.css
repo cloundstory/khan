@@ -738,3 +738,7 @@ input, textarea, select { font: inherit; color: inherit; }
 .scene .hot { cursor: pointer; transform-box: fill-box; transform-origin: center bottom; transition: transform 0.2s ease; }
 @media (hover: hover) { .scene .hot:hover { transform: translateY(-4px); } }
 .scene .hot:focus-visible { outline: none; }
+
+/* ---------- หนังสือวาดมือ (แทน Book3D) ---------- */
+.handbook-wrap { display: grid; place-items: center; margin: 2px 0 14px; }
+.handbook { width: 208px; height: auto; display: block; }
