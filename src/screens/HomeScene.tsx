@@ -1,6 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../store/useApp';
 import { openBookId } from '../lib/stats';
+import { SET_PIECES, type Piece } from '../scene/pieces';
+
+/**
+ * รูป set piece วาดทับ placeholder — ถ้ายังไม่มีไฟล์ public/set/<name>.webp (404)
+ * จะซ่อนตัวเอง แล้วเห็น SVG placeholder ข้างใต้แทน · พอหย่อนรูปจริงเข้ามาก็โผล่เอง
+ */
+function SceneImage({ p }: { p: Piece }) {
+  const [ok, setOk] = useState(true);
+  if (!ok) return null;
+  return (
+    <image
+      href={`${import.meta.env.BASE_URL}set/${p.name}.webp`}
+      x={p.x}
+      y={p.y}
+      width={p.w}
+      height={p.h}
+      preserveAspectRatio="xMidYMax meet"
+      style={{ pointerEvents: 'none' }}
+      onError={() => setOk(false)}
+    />
+  );
+}
 
 /**
  * หน้าโฮม — ฉากห้องอ่านวาดมือ (line-art + halftone) ไม่มีคน
@@ -38,6 +60,12 @@ export default function HomeScene() {
     if (openBook) return go({ name: 'book', bookId: openBook.id });
     if (pile[0]) return go({ name: 'book', bookId: pile[0].id });
     go({ name: 'add' });
+  }
+
+  function openBoard() {
+    const b = openBook ?? books[0];
+    if (b) return go({ name: 'board', bookId: b.id });
+    go({ name: 'browse' });
   }
 
   // จุดที่ vite ต้องรู้ว่า startSession ยังใช้ (ไว้ต่อยอด: กดโซฟาแล้วเริ่มเลย) — เก็บ ref ไว้
@@ -85,9 +113,10 @@ export default function HomeScene() {
         <g filter="url(#ink2)" stroke="var(--ink)" fill="none" stroke-width="1.4">
           <ellipse cx="520" cy="600" rx="430" ry="96" opacity="0.5" />
         </g>
+        <SceneImage p={SET_PIECES.rug} />
 
         {/* ===== ผนัง: นาฬิกา + ชั้นหนังสือ + ต้นไม้แขวน ===== */}
-        {/* นาฬิกาเดินจริง */}
+        {/* นาฬิกา — หน้าปัด (placeholder/รูป) แล้ววาดเข็มทับ (เดินจริง) */}
         <g filter="url(#ink)" transform="translate(196 150)">
           <circle r="46" fill="var(--paper-hi)" stroke="var(--ink)" stroke-width="2.4" />
           <circle r="46" fill="none" stroke="var(--ink)" stroke-width="0.8" opacity="0.4" transform="scale(0.86)" />
@@ -95,13 +124,16 @@ export default function HomeScene() {
             <line key={i} x1="0" y1="-38" x2="0" y2={i % 3 === 0 ? '-31' : '-34'} stroke="var(--ink)"
               stroke-width={i % 3 === 0 ? 2.2 : 1.2} transform={`rotate(${i * 30})`} />
           ))}
+        </g>
+        <SceneImage p={SET_PIECES.clock} />
+        <g transform="translate(196 150)">
           <line x1="0" y1="6" x2="0" y2="-24" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"
             transform={`rotate(${hourA})`} />
           <line x1="0" y1="8" x2="0" y2="-34" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"
             transform={`rotate(${minA})`} />
           <line x1="0" y1="10" x2="0" y2="-36" stroke="#a5312a" stroke-width="1.1" stroke-linecap="round"
             transform={`rotate(${secA})`} />
-          <circle r="2.6" fill="var(--ink)" />
+          <circle cx="0" cy="0" r="2.6" fill="var(--ink)" />
         </g>
 
         {/* ชั้นหนังสือบนผนัง — กดดูหนังสือทั้งหมด */}
@@ -110,6 +142,7 @@ export default function HomeScene() {
           <g filter="url(#ink)" stroke="var(--ink)" fill="none" stroke-width="2" stroke-linecap="round">
             <path d="M636 232 H900" stroke-width="3" />
             <path d="M636 232 l-6 10 M900 232 l6 10" />
+            <SceneImage p={SET_PIECES.shelf} />
             {/* สันหนังสือบนชั้น */}
             {shelfSpines(shelf.length).map((sp, i) => (
               <g key={i} transform={`translate(${648 + sp.x} 232) rotate(${sp.lean})`}>
@@ -131,6 +164,28 @@ export default function HomeScene() {
             <path d="M-20 0 h40 l-5 15 h-30 Z" fill="var(--paper-hi)" />
             <path d="M-12 0 c-3 20 -9 30 -16 40 M2 0 c1 24 1 36 2 50 M14 0 c3 18 9 28 16 36" stroke="var(--sage)" />
           </g>
+          <SceneImage p={SET_PIECES['plant-hang-a']} />
+          <SceneImage p={SET_PIECES['plant-hang-b']} />
+        </g>
+
+        {/* ===== evidence board บนผนัง — กดเปิดบอร์ดเบาะแส ===== */}
+        <g className="hot" onClick={openBoard} role="button" tabIndex={0} aria-label="บอร์ดเบาะแส">
+          <rect x="298" y="88" width="176" height="130" fill="transparent" />
+          <g filter="url(#ink)" stroke="var(--ink)" strokeWidth="2" strokeLinejoin="round">
+            <rect x="312" y="98" width="150" height="112" rx="3" fill="var(--paper-low)" />
+            <rect x="319" y="105" width="136" height="98" rx="2" fill="var(--paper-hi)" opacity="0.5" fill-opacity="0.5" />
+            <path d="M345 132 L412 176" stroke="#a5312a" strokeWidth="1.5" fill="none" />
+            <path d="M424 128 L360 190" stroke="#a5312a" strokeWidth="1.5" fill="none" />
+            <g fill="var(--paper-hi)" strokeWidth="1.6">
+              <rect x="330" y="120" width="34" height="24" rx="1.5" transform="rotate(-5 347 132)" />
+              <rect x="400" y="116" width="34" height="24" rx="1.5" transform="rotate(4 417 128)" />
+              <rect x="348" y="172" width="34" height="24" rx="1.5" transform="rotate(3 365 184)" />
+            </g>
+            <g fill="var(--brass)" stroke="none">
+              <circle cx="347" cy="122" r="2.3" /><circle cx="417" cy="118" r="2.3" /><circle cx="365" cy="174" r="2.3" />
+            </g>
+          </g>
+          <SceneImage p={SET_PIECES.board} />
         </g>
 
         {/* ===== โคมไฟตั้งพื้น ===== */}
@@ -140,6 +195,7 @@ export default function HomeScene() {
           <path d="M500 300 V560" stroke-width="2.4" />
           <path d="M470 560 H530 M500 560 v6" />
           <path d="M492 246 h16 M486 262 h28 M480 280 h40" opacity="0.4" stroke-width="1.2" />
+          <SceneImage p={SET_PIECES.lamp} />
         </g>
 
         {/* ===== เก้าอี้อ่านหนังสือ (โซฟา) — กดไปหน้าอ่าน ===== */}
@@ -154,6 +210,7 @@ export default function HomeScene() {
             <path d="M726 604 v40 M876 604 v40" />
             <path d="M760 528 q40 -14 82 0" fill="none" stroke-width="1.4" opacity="0.45" />
           </g>
+          <SceneImage p={SET_PIECES.chair} />
         </g>
 
         {/* ===== ต้นไม้กระถาง + terrarium ข้างเก้าอี้ ===== */}
@@ -165,6 +222,7 @@ export default function HomeScene() {
           <path d="M-8 32 c-6 -30 -4 -52 -2 -70 M2 32 c2 -26 4 -50 6 -66 M-2 32 c0 -34 -6 -58 -10 -74"
             fill="none" stroke="var(--sage)" stroke-width="1.8" stroke-linecap="round" />
         </g>
+        <SceneImage p={SET_PIECES['plant-shelf']} />
 
         {/* ===== กองหนังสือ — โตตามจำนวนจริง · กดเพื่อเพิ่มเล่ม ===== */}
         <g className="hot" onClick={() => go({ name: 'add' })} role="button" tabIndex={0} aria-label="เพิ่มหนังสือ">
@@ -201,6 +259,7 @@ export default function HomeScene() {
           <path d="M50 4 q6 4 13 1 M66 8 l3 4" fill="none" stroke-width="1.4" opacity="0.75" />
           <path d="M-20 -20 q4 8 0 16 M6 -22 q4 8 0 16 M-46 -8 q4 6 0 12" fill="none" stroke-width="1.2" opacity="0.4" />
         </g>
+        <SceneImage p={SET_PIECES.cat} />
       </svg>
 
       {books.length === 0 && (
