@@ -41,6 +41,13 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* filter เส้นวาดมือใช้ร่วมทั้งแอป — ใส่ class "hand-line" ที่ svg/ไอคอนไหนก็ได้ */}
+      <svg width="0" height="0" aria-hidden="true" style={{ position: 'absolute' }}>
+        <filter id="hand" x="-6%" y="-6%" width="112%" height="112%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="4" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="1.6" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </svg>
       {screen.name === 'room' && <HomeScene />}
       {screen.name === 'browse' && <Room />}
       {screen.name === 'book' && <BookSheet bookId={screen.bookId} />}

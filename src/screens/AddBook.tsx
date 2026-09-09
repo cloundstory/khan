@@ -169,7 +169,7 @@ export default function AddBook() {
         <div className="choice">
           <button className="choice-card" onClick={() => setStep('scan')}>
             <span className="choice-icon">
-              <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+              <svg className="hand-line" viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
                 <path d="M3 8V5.5A2.5 2.5 0 0 1 5.5 3H8M16 3h2.5A2.5 2.5 0 0 1 21 5.5V8M21 16v2.5a2.5 2.5 0 0 1-2.5 2.5H16M8 21H5.5A2.5 2.5 0 0 1 3 18.5V16" />
                 <path d="M7 8v8M10 8v8M13.5 8v8M17 8v8" />
               </svg>
@@ -189,7 +189,7 @@ export default function AddBook() {
             }}
           >
             <span className="choice-icon">
-              <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="hand-line" viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3z" />
                 <path d="M13.5 6.5l4 4" />
               </svg>
