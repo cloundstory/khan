@@ -5,6 +5,7 @@ import { allSessions } from '../db/sessions';
 
 export type Screen =
   | { name: 'room' }
+  | { name: 'browse' }
   | { name: 'book'; bookId: string }
   | { name: 'add' }
   | { name: 'session'; bookId: string }

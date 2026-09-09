@@ -718,3 +718,19 @@ input, textarea, select { font: inherit; color: inherit; }
   .pile-bk { transition: filter 0.18s ease; }
   .pile-bk:hover { filter: brightness(1.06); }
 }
+
+/* ================= หน้าโฮม — ฉากห้องวาดมือ ================= */
+.scene-wrap { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.scene { display: block; width: 100%; height: 100%; }
+.scene-gear {
+  position: absolute; top: calc(var(--safe-t) + 14px); right: 16px; z-index: 3;
+  width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line);
+  color: var(--ink-soft); background: var(--paper-hi); display: grid; place-items: center; font-size: 15px;
+}
+.scene-hint {
+  position: absolute; left: 50%; top: 40%; transform: translateX(-50%);
+  font-family: var(--serif); font-size: 15px; color: var(--ink-soft); text-align: center;
+}
+.scene .hot { cursor: pointer; transform-box: fill-box; transform-origin: center bottom; transition: transform 0.2s ease; }
+@media (hover: hover) { .scene .hot:hover { transform: translateY(-4px); } }
+.scene .hot:focus-visible { outline: none; }

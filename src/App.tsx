@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useApp } from './store/useApp';
+import HomeScene from './screens/HomeScene';
 import Room from './screens/Room';
 import BookSheet from './screens/BookSheet';
 import SessionScreen from './screens/SessionScreen';
@@ -40,7 +41,8 @@ export default function App() {
 
   return (
     <div className="app">
-      {screen.name === 'room' && <Room />}
+      {screen.name === 'room' && <HomeScene />}
+      {screen.name === 'browse' && <Room />}
       {screen.name === 'book' && <BookSheet bookId={screen.bookId} />}
       {screen.name === 'capture' && <Capture bookId={screen.bookId} />}
       {screen.name === 'closing' && <Closing bookId={screen.bookId} />}

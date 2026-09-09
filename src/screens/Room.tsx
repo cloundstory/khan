@@ -45,7 +45,8 @@ export default function Room() {
   return (
     <div className="page room">
       <div className="topline">
-        <span className="wordmark">คั่น</span>
+        <button className="back" style={{ margin: 0 }} onClick={() => go({ name: 'room' })}>← ห้อง</button>
+        <span className="wordmark">หนังสือทั้งหมด</span>
         <button className="icon-btn" onClick={() => go({ name: 'settings' })} aria-label="ตั้งค่า">
           ⚙
         </button>
