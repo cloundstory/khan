@@ -12,6 +12,9 @@ export default defineConfig(({ command }) => {
 
   return {
     base,
+    // Allow the explicitly requested localtunnel preview host while keeping
+    // Vite's host validation enabled for normal local development.
+    server: { allowedHosts: ['.loca.lt'] },
     plugins: [
       react(),
       VitePWA({
@@ -23,7 +26,7 @@ export default defineConfig(({ command }) => {
           // three กับตัวถอดรหัสบาร์โค้ดเป็นของเสริม ไม่ใช่ของที่แอปขาดไม่ได้
           // ออฟไลน์ยังเปิดหน้าเล่มได้ปกติ แค่เห็นปกแบนแทนเล่ม 3D
           // จึงไม่ควรบังคับให้ทุกคนโหลดตอนติดตั้ง — ให้ runtimeCaching เก็บตอนใช้จริง
-          globIgnores: ['**/three.module-*.js', '**/ponyfill-*.js', '**/zxing_reader-*.js'],
+          globIgnores: ['**/three.module-*.js', '**/ponyfill-*.js', '**/zxing_reader-*.js', '**/ArtLab-*', '**/BookStudy-*', '**/Diorama-*', '**/reading-room-concept-*', '**/concept/**'],
           runtimeCaching: [
             {
               // ปกหนังสือจาก Open Library — เก็บไว้ยาว ๆ ปกไม่เปลี่ยน
@@ -89,3 +92,4 @@ export default defineConfig(({ command }) => {
     ],
   };
 });
+

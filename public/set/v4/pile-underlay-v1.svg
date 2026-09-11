@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 260" role="img" aria-labelledby="title desc">
+  <title id="title">Hand-drawn book pile landing area</title>
+  <desc id="desc">A quiet graphite contact mark and one loose cream note.</desc>
+  <defs>
+    <filter id="soft-pencil" x="-15%" y="-40%" width="130%" height="180%">
+      <feGaussianBlur stdDeviation="3.5" />
+    </filter>
+  </defs>
+
+  <path
+    d="M52 166 C121 126 250 109 388 119 C498 127 583 151 614 181 C565 207 436 220 292 215 C172 211 82 194 52 166 Z"
+    fill="#524a43"
+    opacity="0.075"
+    filter="url(#soft-pencil)"
+  />
+
+  <g fill="none" stroke="#5b5149" stroke-linecap="round">
+    <path d="M72 170 C153 137 270 127 392 136 C474 141 535 154 582 177" stroke-width="2.2" opacity="0.22" stroke-dasharray="3 8 14 6" />
+    <path d="M88 181 C179 151 306 146 438 158 C490 162 536 171 564 184" stroke-width="1.7" opacity="0.18" stroke-dasharray="12 7 4 9" />
+    <path d="M111 192 C206 170 335 169 474 181" stroke-width="1.5" opacity="0.16" stroke-dasharray="2 7 9 6" />
+    <path d="M138 154 L184 188 M177 145 L221 193 M222 137 L262 198 M273 133 L305 201 M326 134 L350 203 M382 139 L396 203 M438 147 L444 198" stroke-width="1.2" opacity="0.13" stroke-dasharray="8 5 2 7" />
+  </g>
+
+  <g transform="rotate(2 590 179)">
+    <path
+      d="M501 137 L678 148 L645 219 L476 205 Z"
+      fill="#f3ead7"
+      stroke="#493f38"
+      stroke-width="2.2"
+      stroke-linejoin="round"
+    />
+    <path d="M645 219 L626 201 L651 203 Z" fill="#d8c7a8" stroke="#493f38" stroke-width="1.5" stroke-linejoin="round" />
+    <path d="M493 151 C535 148 582 153 630 158" fill="none" stroke="#8d8171" stroke-width="1.1" opacity="0.24" stroke-dasharray="16 7 3 10" />
+    <path d="M487 169 C532 165 574 170 614 175" fill="none" stroke="#8d8171" stroke-width="1" opacity="0.18" stroke-dasharray="4 8 13 6" />
+  </g>
+
+  <g fill="#514840" opacity="0.34">
+    <circle cx="687" cy="207" r="2.2" />
+    <circle cx="701" cy="196" r="1.5" />
+    <circle cx="673" cy="225" r="1.1" />
+  </g>
+</svg>

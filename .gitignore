@@ -1,4 +1,9 @@
 node_modules
+.tools/
+.env
+.env.*
+!.env.example
+meshy_output/
 dist
 dist-ssr
 dev-dist
