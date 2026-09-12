@@ -1,17 +1,26 @@
 import { create } from 'zustand';
-import type { Book, Session } from '../db/schema';
+import type { Book, BookStatus, ReaderProfile, SceneCosmetics, Session } from '../db/schema';
 import { allBooks } from '../db/books';
 import { allSessions } from '../db/sessions';
+import {
+  DEFAULT_SCENE_COSMETICS,
+  DEFAULT_READER_PROFILE,
+  getReaderProfile,
+  getSceneCosmetics,
+  saveReaderProfile as persistReaderProfile,
+  saveSceneCosmetics as persistSceneCosmetics,
+} from '../db/settings';
 
 export type Screen =
   | { name: 'room' }
-  | { name: 'browse' }
+  | { name: 'browse'; focus?: BookStatus }
   | { name: 'book'; bookId: string }
   | { name: 'add' }
   | { name: 'session'; bookId: string }
   | { name: 'capture'; bookId: string }
   | { name: 'closing'; bookId: string }
   | { name: 'board'; bookId: string }
+  | { name: 'profile' }
   | { name: 'settings' };
 
 /** session ที่กำลังเดิน — เก็บใน localStorage กัน refresh แล้วหาย */
@@ -52,9 +61,13 @@ interface AppState {
   loading: boolean;
   screen: Screen;
   active: ActiveSession | null;
+  sceneCosmetics: SceneCosmetics;
+  readerProfile: ReaderProfile;
   toast: string | null;
 
   refresh: () => Promise<void>;
+  saveSceneCosmetics: (patch: Partial<SceneCosmetics>) => Promise<void>;
+  saveReaderProfile: (patch: Partial<ReaderProfile>) => Promise<void>;
   go: (screen: Screen) => void;
   startSession: (a: ActiveSession) => void;
   pauseSession: () => void;
@@ -71,11 +84,28 @@ export const useApp = create<AppState>((set) => ({
   loading: true,
   screen: { name: 'room' },
   active: loadActive(),
+  sceneCosmetics: { ...DEFAULT_SCENE_COSMETICS },
+  readerProfile: { ...DEFAULT_READER_PROFILE },
   toast: null,
 
   refresh: async () => {
-    const [books, sessions] = await Promise.all([allBooks(), allSessions()]);
-    set({ books, sessions, loading: false });
+    const [books, sessions, sceneCosmetics, readerProfile] = await Promise.all([
+      allBooks(),
+      allSessions(),
+      getSceneCosmetics(),
+      getReaderProfile(),
+    ]);
+    set({ books, sessions, sceneCosmetics, readerProfile, loading: false });
+  },
+
+  saveSceneCosmetics: async (patch) => {
+    const sceneCosmetics = await persistSceneCosmetics(patch);
+    set({ sceneCosmetics });
+  },
+
+  saveReaderProfile: async (patch) => {
+    const readerProfile = await persistReaderProfile(patch);
+    set({ readerProfile });
   },
 
   go: (screen) => set({ screen }),

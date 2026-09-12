@@ -3,9 +3,15 @@ import { openBookId, daysInPile } from '../lib/stats';
 import { buildRecovery, daysAwayLabel } from '../lib/recovery';
 import { posLabel, progressRatio } from '../lib/format';
 import { useCoverPhoto } from '../lib/useCoverPhoto';
-import type { Book, Session } from '../db/schema';
+import type { Book, BookStatus, Session } from '../db/schema';
 
-export default function Room() {
+const FOCUSED_ROOM_TITLES: Record<BookStatus, string> = {
+  pile: 'กองหนังสือ',
+  desk: 'หนังสือบนโต๊ะ',
+  shelf: 'หนังสือบนชั้น',
+};
+
+export default function Room({ focus }: { focus?: BookStatus }) {
   const { books, sessions, go } = useApp();
 
   const pile = books.filter((b) => b.status === 'pile').sort((a, b) => a.addedAt - b.addedAt);
@@ -18,7 +24,70 @@ export default function Room() {
   const open = desk.find((b) => b.id === openId);
   const closed = desk.filter((b) => b.id !== openId);
 
-  if (books.length === 0) {
+  const shelfZone = (
+    <Zone name="ชั้น" tone="wall" count={shelf.length}>
+      {shelf.length === 0 ? (
+        <p className="zone-empty">ยังไม่มีเล่มไหนขึ้นชั้น</p>
+      ) : (
+        <>
+          <div className="shelf">
+            {shelf.map((b) => (
+              <Spine key={b.id} book={b} onClick={() => go({ name: 'book', bookId: b.id })} />
+            ))}
+          </div>
+          <div className="plank" />
+        </>
+      )}
+      {/* ต้นไม้ยืนบนชั้น ริมขวา — ผูกกับโซนชั้นเพื่อให้อยู่ระดับไม้กระดานเสมอ */}
+      <RoomPlant />
+    </Zone>
+  );
+
+  const deskZone = (
+    <Zone name="โต๊ะ" tone="desk" count={desk.length} note={desk.length > 3 ? 'โต๊ะเริ่มแน่น' : undefined}>
+      {!open ? (
+        <p className="zone-empty">ยังไม่มีเล่มไหนอยู่บนโต๊ะ</p>
+      ) : (
+        <>
+          <OpenBook
+            book={open}
+            sessions={sessions.filter((s) => s.bookId === open.id)}
+            onClick={() => go({ name: 'book', bookId: open.id })}
+          />
+          {closed.length > 0 && (
+            <div className="lying">
+              {closed.map((b) => (
+                <LyingBook key={b.id} book={b} onClick={() => go({ name: 'book', bookId: b.id })} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </Zone>
+  );
+
+  const pileZone = (
+    <Zone name="กอง" tone="floor" count={pile.length}>
+      {pile.length === 0 ? (
+        <p className="zone-empty">กองว่าง</p>
+      ) : (
+        /* column-reverse ใน CSS — เล่มแรกของอาร์เรย์ (เก่าสุด) จึงไปอยู่ก้นกอง */
+        <div className="pile">
+          {pile.map((b, i) => (
+            <PileBook
+              key={b.id}
+              book={b}
+              index={i}
+              onClick={() => go({ name: 'book', bookId: b.id })}
+            />
+          ))}
+        </div>
+      )}
+    </Zone>
+  );
+
+  // หน้าคลังรวมเดิมเก็บ empty state เดิมไว้; หน้า focus ต้องยังเปิดหมวดว่างให้เห็นได้
+  if (!focus && books.length === 0) {
     return (
       <div className="page">
         <div className="topline">
@@ -35,9 +104,30 @@ export default function Room() {
             เพิ่มเล่มแรกเพื่อเริ่มกอง
           </p>
         </div>
-        <button className="fab" onClick={() => go({ name: 'add' })} aria-label="เพิ่มหนังสือ">
-          +
-        </button>
+      </div>
+    );
+  }
+
+  if (focus) {
+    const zone = focus === 'pile' ? pileZone : focus === 'desk' ? deskZone : shelfZone;
+
+    return (
+      <div className="page room">
+        <div className="topline">
+          <button className="back" style={{ margin: 0 }} onClick={() => go({ name: 'room' })} aria-label="กลับไปที่ห้อง">← ห้อง</button>
+          <span className="wordmark">{FOCUSED_ROOM_TITLES[focus]}</span>
+          <button className="icon-btn" onClick={() => go({ name: 'settings' })} aria-label="ตั้งค่า">
+            ⚙
+          </button>
+        </div>
+
+        {zone}
+
+        {focus === 'pile' && (
+          <button className="fab" onClick={() => go({ name: 'add' })} aria-label="เพิ่มหนังสือ">
+            +
+          </button>
+        )}
       </div>
     );
   }
@@ -54,65 +144,10 @@ export default function Room() {
 
       {/* เรียงตามความสูงจริงของห้อง: ชั้นบนผนัง → โต๊ะ → กองบนพื้น
           และกองต้องอยู่ล่างสุดเพราะเป็นโซนเดียวที่โตไม่มีเพดาน */}
-      <Zone name="ชั้น" tone="wall" count={shelf.length}>
-        {shelf.length === 0 ? (
-          <p className="zone-empty">ยังไม่มีเล่มไหนขึ้นชั้น</p>
-        ) : (
-          <>
-            <div className="shelf">
-              {shelf.map((b) => (
-                <Spine key={b.id} book={b} onClick={() => go({ name: 'book', bookId: b.id })} />
-              ))}
-            </div>
-            <div className="plank" />
-          </>
-        )}
-        {/* ต้นไม้ยืนบนชั้น ริมขวา — ผูกกับโซนชั้นเพื่อให้อยู่ระดับไม้กระดานเสมอ */}
-        <RoomPlant />
-      </Zone>
+      {shelfZone}
+      {deskZone}
+      {pileZone}
 
-      <Zone name="โต๊ะ" tone="desk" count={desk.length} note={desk.length > 3 ? 'โต๊ะเริ่มแน่น' : undefined}>
-        {!open ? (
-          <p className="zone-empty">ยังไม่มีเล่มไหนอยู่บนโต๊ะ</p>
-        ) : (
-          <>
-            <OpenBook
-              book={open}
-              sessions={sessions.filter((s) => s.bookId === open.id)}
-              onClick={() => go({ name: 'book', bookId: open.id })}
-            />
-            {closed.length > 0 && (
-              <div className="lying">
-                {closed.map((b) => (
-                  <LyingBook key={b.id} book={b} onClick={() => go({ name: 'book', bookId: b.id })} />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </Zone>
-
-      <Zone name="กอง" tone="floor" count={pile.length}>
-        {pile.length === 0 ? (
-          <p className="zone-empty">กองว่าง</p>
-        ) : (
-          /* column-reverse ใน CSS — เล่มแรกของอาร์เรย์ (เก่าสุด) จึงไปอยู่ก้นกอง */
-          <div className="pile">
-            {pile.map((b, i) => (
-              <PileBook
-                key={b.id}
-                book={b}
-                index={i}
-                onClick={() => go({ name: 'book', bookId: b.id })}
-              />
-            ))}
-          </div>
-        )}
-      </Zone>
-
-      <button className="fab" onClick={() => go({ name: 'add' })} aria-label="เพิ่มหนังสือ">
-        +
-      </button>
     </div>
   );
 }

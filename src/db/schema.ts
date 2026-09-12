@@ -1,4 +1,7 @@
 import Dexie, { type Table } from 'dexie';
+import type { SceneCatId } from '../scene/catManifest';
+import type { SceneCharacterId } from '../scene/characterManifest';
+import type { LampMode } from '../scene/roomEnvironment';
 
 /** ตำแหน่งในเล่ม: หน้า หรือ เปอร์เซ็นต์ — เก็บเป็น integer เสมอ */
 export type Unit = 'page' | 'percent';
@@ -78,7 +81,26 @@ export interface Thread {
 export interface Settings {
   id: 'settings';
   defaultMinutes?: number;
+  /** เครื่องตกแต่งห้อง — ไม่ทำ index เพราะอ่าน/เขียนเป็นเรคอร์ด settings เดียว */
+  scene?: SceneCosmetics;
+  /** ข้อความสั้น ๆ ที่เจ้าของห้องเขียนถึงตัวเองบนหน้า Profile */
+  profile?: ReaderProfile;
   schemaVersion: number;
+}
+
+/** ค่าที่ผู้ใช้เลือกสำหรับตัวละคร แมว และแสงในห้อง */
+export interface SceneCosmetics {
+  catId: SceneCatId;
+  characterId: SceneCharacterId;
+  lampMode: LampMode;
+}
+
+/**
+ * โปรไฟล์ช่วงแรกตั้งใจให้เล็กและเป็นส่วนตัว: ไม่มีคะแนน ไม่มี follower
+ * มีเพียงพื้นที่ให้ผู้ใช้อธิบายความสัมพันธ์ของตัวเองกับการอ่าน
+ */
+export interface ReaderProfile {
+  about: string;
 }
 
 /** รูปปกที่ผู้ใช้ถ่ายเอง — แยกตารางเพื่อไม่ให้ allBooks() ต้องลากรูปมาด้วย */

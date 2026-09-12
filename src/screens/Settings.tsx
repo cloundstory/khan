@@ -3,9 +3,22 @@ import { useApp } from '../store/useApp';
 import { downloadBackup, importBackup } from '../db/export';
 import { deleteBook } from '../db/books';
 import { fileSizeLabel } from '../lib/format';
+import { SCENE_CATS, type SceneCatId } from '../scene/catManifest';
+import {
+  SCENE_CHARACTER_IDS,
+  SCENE_CHARACTERS,
+  type SceneCharacterId,
+} from '../scene/characterManifest';
+import type { LampMode } from '../scene/roomEnvironment';
+
+const LAMP_OPTIONS: ReadonlyArray<{ id: LampMode; label: string }> = [
+  { id: 'auto', label: 'ตามเวลา' },
+  { id: 'on', label: 'เปิดเสมอ' },
+  { id: 'off', label: 'ปิดเสมอ' },
+];
 
 export default function Settings() {
-  const { books, go, refresh, say } = useApp();
+  const { books, go, refresh, say, sceneCosmetics, saveSceneCosmetics } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
@@ -31,12 +44,95 @@ export default function Settings() {
     say('ลบแล้ว');
   }
 
+  async function selectCat(catId: SceneCatId) {
+    if (catId === sceneCosmetics.catId) return;
+    await saveSceneCosmetics({ catId });
+    say('แมวประจำห้องเปลี่ยนแล้ว');
+  }
+
+  async function selectCharacter(characterId: SceneCharacterId) {
+    if (characterId === sceneCosmetics.characterId) return;
+    await saveSceneCosmetics({ characterId });
+    say('ตัวละครประจำห้องเปลี่ยนแล้ว');
+  }
+
+  async function selectLampMode(lampMode: LampMode) {
+    if (lampMode === sceneCosmetics.lampMode) return;
+    await saveSceneCosmetics({ lampMode });
+    say(lampMode === 'auto' ? 'โคมไฟจะทำงานตามเวลา' : lampMode === 'on' ? 'เปิดโคมไฟแล้ว' : 'ปิดโคมไฟแล้ว');
+  }
+
   return (
     <div className="page">
       <button className="back" onClick={() => go({ name: 'room' })}>← กลับห้อง</button>
 
       <div className="topline">
         <span className="wordmark">ตั้งค่า</span>
+      </div>
+
+      <div className="section-label">เพื่อนร่วมอ่าน</div>
+      <p className="field-hint cosmetic-hint">แมวจะนอนอยู่บนพรม และหายใจเบา ๆ ไปพร้อมกับห้อง</p>
+      <div className="cosmetic-grid" role="group" aria-label="เลือกแมวประจำห้อง">
+        {Object.values(SCENE_CATS).map((cat) => {
+          const selected = sceneCosmetics.catId === cat.id;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              className={'cosmetic-option' + (selected ? ' is-selected' : '')}
+              aria-pressed={selected}
+              onClick={() => void selectCat(cat.id)}
+            >
+              <img src={import.meta.env.BASE_URL + cat.src} alt="" />
+              <span>{cat.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {SCENE_CHARACTER_IDS.length > 1 && (
+        <>
+          <div className="section-label">ตัวละคร</div>
+          <p className="field-hint cosmetic-hint">แต่ละชุดมีท่ากำลังอ่านและมองวิวที่วาดเข้ากับห้องเดียวกัน</p>
+          <div className="cosmetic-grid" role="group" aria-label="เลือกตัวละครประจำห้อง">
+            {SCENE_CHARACTER_IDS.map((characterId) => {
+              const character = SCENE_CHARACTERS[characterId];
+              const selected = sceneCosmetics.characterId === characterId;
+              const preview = character.poses.reading[0];
+              return (
+                <button
+                  key={characterId}
+                  type="button"
+                  className={'cosmetic-option cosmetic-option--character' + (selected ? ' is-selected' : '')}
+                  aria-pressed={selected}
+                  onClick={() => void selectCharacter(characterId)}
+                >
+                  <img src={import.meta.env.BASE_URL + preview.src} alt="" />
+                  <span>{character.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <div className="section-label">แสงในห้อง</div>
+      <p className="field-hint cosmetic-hint">แตะโคมในห้องเพื่อเปิดหรือปิดทันที หรือกลับมาใช้เวลาจริงได้ที่นี่</p>
+      <div className="lamp-mode-options" role="group" aria-label="ตั้งค่าโคมไฟ">
+        {LAMP_OPTIONS.map((option) => {
+          const selected = sceneCosmetics.lampMode === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              className={'lamp-mode-option' + (selected ? ' is-selected' : '')}
+              aria-pressed={selected}
+              onClick={() => void selectLampMode(option.id)}
+            >
+              {option.label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="section-label">ข้อมูล</div>

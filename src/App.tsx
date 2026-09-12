@@ -8,6 +8,7 @@ import Capture from './screens/Capture';
 import Closing from './screens/Closing';
 import AddBook from './screens/AddBook';
 import Board from './screens/Board';
+import Profile from './screens/Profile';
 import Settings from './screens/Settings';
 
 export default function App() {
@@ -49,12 +50,13 @@ export default function App() {
         </filter>
       </svg>
       {screen.name === 'room' && <HomeScene />}
-      {screen.name === 'browse' && <Room />}
+      {screen.name === 'browse' && <Room focus={screen.focus} />}
       {screen.name === 'book' && <BookSheet bookId={screen.bookId} />}
       {screen.name === 'capture' && <Capture bookId={screen.bookId} />}
       {screen.name === 'closing' && <Closing bookId={screen.bookId} />}
       {screen.name === 'board' && <Board bookId={screen.bookId} />}
       {screen.name === 'add' && <AddBook />}
+      {screen.name === 'profile' && <Profile />}
       {screen.name === 'settings' && <Settings />}
       {toast && <div className="toast">{toast}</div>}
     </div>

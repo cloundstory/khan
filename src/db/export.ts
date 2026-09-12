@@ -1,4 +1,4 @@
-import { db, SCHEMA_VERSION, type Book, type Session, type Card, type Thread } from './schema';
+import { db, SCHEMA_VERSION, type Book, type Session, type Card, type Thread, type Settings } from './schema';
 import { blobToDataUrl, dataUrlToBlob } from '../lib/photo';
 
 export interface Backup {
@@ -9,6 +9,8 @@ export interface Backup {
   sessions: Session[];
   cards: Card[];
   threads: Thread[];
+  /** การตั้งค่าห้องเป็นของเครื่องปลายทาง จึงนำเข้าเฉพาะเมื่อยังไม่มี */
+  settings?: Settings;
   /**
    * รูปปกที่ถ่ายเอง เก็บเป็น data URL
    * ทำให้ไฟล์โตขึ้นราว 50-80 KB ต่อรูป แต่ backup ที่กู้คืนได้ไม่ครบก็ไม่ใช่ backup
@@ -19,11 +21,12 @@ export interface Backup {
 }
 
 export async function buildBackup(): Promise<Backup> {
-  const [books, sessions, cards, threads, covers, cardPics] = await Promise.all([
+  const [books, sessions, cards, threads, settings, covers, cardPics] = await Promise.all([
     db.books.toArray(),
     db.sessions.toArray(),
     db.cards.toArray(),
     db.threads.toArray(),
+    db.settings.get('settings'),
     db.covers.toArray(),
     db.cardPhotos.toArray(),
   ]);
@@ -43,6 +46,7 @@ export async function buildBackup(): Promise<Backup> {
     sessions,
     cards,
     threads,
+    settings,
     coverPhotos,
     cardPhotos,
   };
@@ -103,6 +107,11 @@ export async function importBackup(json: unknown): Promise<ImportResult> {
       result.added.threads++;
     }
   });
+
+  // เครื่องที่รับไฟล์อาจเลือกบรรยากาศของตัวเองไว้แล้ว จึงไม่ทับความตั้งใจนั้น
+  if (data.settings && !(await db.settings.get('settings'))) {
+    await db.settings.put(data.settings);
+  }
 
   // รูปปกแปลงกลับเป็น Blob นอก transaction เพราะ fetch(dataUrl) เป็น async ที่ Dexie คุมไม่ได้
   for (const p of data.coverPhotos ?? []) {

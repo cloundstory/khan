@@ -26,7 +26,10 @@ export default defineConfig(({ command }) => {
           // three กับตัวถอดรหัสบาร์โค้ดเป็นของเสริม ไม่ใช่ของที่แอปขาดไม่ได้
           // ออฟไลน์ยังเปิดหน้าเล่มได้ปกติ แค่เห็นปกแบนแทนเล่ม 3D
           // จึงไม่ควรบังคับให้ทุกคนโหลดตอนติดตั้ง — ให้ runtimeCaching เก็บตอนใช้จริง
-          globIgnores: ['**/three.module-*.js', '**/ponyfill-*.js', '**/zxing_reader-*.js', '**/ArtLab-*', '**/BookStudy-*', '**/Diorama-*', '**/reading-room-concept-*', '**/concept/**'],
+          globIgnores: ['**/three.module-*.js', '**/ponyfill-*.js', '**/zxing_reader-*.js', '**/ArtLab-*', '**/BookStudy-*', '**/Diorama-*', '**/reading-room-concept-*', '**/concept/**', '**/archive/**'],
+          // The approved room plates are high-resolution illustrations. Keep them
+          // available offline without letting Workbox silently drop them at 2 MiB.
+          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
           runtimeCaching: [
             {
               // ปกหนังสือจาก Open Library — เก็บไว้ยาว ๆ ปกไม่เปลี่ยน
